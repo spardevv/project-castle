@@ -16,7 +16,7 @@ por **LB + botão** ([[Skills do summon]]).
 | | [[Golem]] | [[Sacerdote]] |
 |---|---|---|
 | Papel | tanque / controle | suporte / cura |
-| Vida | 200 | (ver cena `priest.tscn`) |
+| Vida | 200 | 90 |
 | Chegada | meteoro (dano 24, lança, slow-mo) | luz sagrada (cura 40, regen 5 s) |
 | Slots padrão | quake, taunt, grab, rock | heal, bless, hex, smite |
 
