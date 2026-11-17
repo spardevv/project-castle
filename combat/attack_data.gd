@@ -25,6 +25,12 @@ extends Resource
 ## A partir deste tempo o golpe pode ser encadeado (tap/hold) ou cancelado.
 @export var cancel_start := 0.22
 @export var lunge_speed := 3.0
+## Fração do startup que o corpo fica plantado antes de avançar (0 = avança desde o início).
+## Golpes pesados carregam parados e dão o passo junto com a pancada.
+@export_range(0.0, 1.0) var lunge_delay := 0.0
+
+## Onda de choque visual + tremor ao acertar o chão (golpes sísmicos).
+@export var shockwave := false
 
 @export_group("Movimento")
 ## Velocidade vertical dada ao próprio jogador no início da fase ativa (ex.: corte ascendente).

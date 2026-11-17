@@ -10,6 +10,8 @@ const SPACING := 1.75
 var _rigs: Array[HumanoidRig] = []
 var _out_dir := "user://pose_sheets"
 var _filter := ""
+var _hammer := false
+var _shield := false
 
 
 func _ready() -> void:
@@ -18,6 +20,12 @@ func _ready() -> void:
 		_out_dir = args[0]
 	if args.size() > 1:
 		_filter = args[1]
+	if _filter.begins_with("sh:"): # "sh:move_run" = folhas com escudo
+		_filter = _filter.substr(3)
+		_shield = true
+	if _filter.begins_with("hm:"): # "hm:move_" = folhas com o martelo
+		_filter = _filter.substr(3)
+		_hammer = true
 	DirAccess.make_dir_recursive_absolute(_out_dir)
 	_build_stage()
 	await _render_all()
@@ -54,7 +62,10 @@ func _build_stage() -> void:
 		add_child(floor_mi)
 		for col in COLS:
 			var rig: HumanoidRig = RIG.instantiate()
-			rig.offhand = HumanoidRig.Offhand.ORB
+			rig.offhand = HumanoidRig.Offhand.SHIELD if _shield else HumanoidRig.Offhand.ORB
+			if _hammer or _filter.contains("hm_"):
+				rig.offhand = HumanoidRig.Offhand.NONE
+				rig.weapon = HumanoidRig.Weapon.HAMMER
 			if _filter.begins_with("golem"):
 				rig.offhand = HumanoidRig.Offhand.NONE
 				rig.weapon = HumanoidRig.Weapon.NONE

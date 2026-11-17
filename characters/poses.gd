@@ -34,7 +34,29 @@ const WEIGHT := {
 	"air1": 0.1, "air2": 0.1, "plunge": 0.8, "grab": 0.5, "e_swing": 0.5, "e_smash": 1.0,
 	"art_dash": 0.4, "art_finish": 0.9, "bash": 0.6, "cast": 0.2, "e_draw": 0.0,
 	"punch_r": 0.5, "punch_l": 0.5, "rock_throw": 0.7, "taunt": 0.6, "priest_cast": 0.1,
+	# Martelo: tudo pesado. Quanto maior, mais lenta a preparação e mais seca a batida.
+	"hm_swing_r": 0.85, "hm_swing_l": 0.9, "hm_smash": 1.0, "hm_charge": 1.0, "hm_lunge": 0.9,
+	"hm_rising": 0.9, "hm_air1": 0.75, "hm_air2": 0.8, "hm_plunge": 0.95,
+	"hm_spin": 0.9, "hm_art_slam": 1.0,
 }
+
+## Animações que reaproveitam as poses de outra (mudam só peso/tremor).
+## Golpes feitos com as duas mãos (a esquerda segura a arma; orbe/escudo são guardados).
+const TWO_HANDED := {
+	"hm_smash": true, "hm_charge": true, "hm_lunge": true, "hm_rising": true, "hm_plunge": true, "hm_spin": true, "hm_art_slam": true,
+	"overhead": true, "art_finish": true, "plunge": true,
+}
+
+const ALIAS := {"hm_charge": "hm_smash", "hm_art_slam": "hm_smash"}
+
+## Fração da recuperação em que o corpo fica "cravado" na pose final (martelo preso no chão).
+const HOLD := {
+	"hm_swing_r": 0.1, "hm_swing_l": 0.1, "hm_smash": 0.38, "hm_charge": 0.42, "hm_lunge": 0.12,
+	"hm_rising": 0.08, "hm_plunge": 0.3, "hm_art_slam": 0.3,
+}
+
+## Golpes cuja preparação segura com tremor de esforço.
+const CHARGE_SHAKE := {"hm_charge": true, "hm_smash": true}
 
 ## Guarda de espada: peso nas pernas, espada à frente na diagonal.
 const READY := {
@@ -427,6 +449,165 @@ const ATTACKS := {
 			"th_l": Vector3(-34, 0, 6), "kn_l": Vector3(32, 0, 0), "th_r": Vector3(22, 0, -6), "kn_r": Vector3(22, 0, 0),
 		},
 	},
+	# --- MARTELO: golpes brutos. Base larga, preparação funda e o corpo todo jogado no golpe. ---
+	# Varrida pesada direita -> esquerda: martelo arrastado atrás, quadril gira antes dos braços.
+	"hm_swing_r": {
+		"windup": {
+			"root": Vector3(0, -0.16, -0.1), "hips": Vector3(0, -58, 0), "spine": Vector3(16, -48, 0),
+			"head": Vector3(0, 38, 0), "sh_r": Vector3(-55, -112, -8), "el_r": Vector3(-28, 0, 0), "wr_r": Vector3(-50, 0, 0),
+			"sh_l": Vector3(-60, -75, 18), "el_l": Vector3(-65, 0, 0),
+			"th_l": Vector3(-28, 0, 10), "kn_l": Vector3(30, 0, 0), "th_r": Vector3(16, 0, -10), "kn_r": Vector3(40, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.2, 0.22), "hips": Vector3(0, 44, 0), "spine": Vector3(22, 54, 0),
+			"head": Vector3(0, -40, 0), "sh_r": Vector3(-100, -52, 0), "el_r": Vector3(-6, 0, 0), "wr_r": Vector3(-6, 0, 0),
+			"sh_l": Vector3(-88, -30, 15), "el_l": Vector3(-28, 0, 0),
+			"th_l": Vector3(-42, 0, 10), "kn_l": Vector3(40, 0, 0), "th_r": Vector3(26, 0, -10), "kn_r": Vector3(22, 0, 0),
+		},
+		"follow": {
+			"root": Vector3(0, -0.24, 0.24), "hips": Vector3(0, 56, 0), "spine": Vector3(26, 70, 0),
+			"head": Vector3(0, -52, 0), "sh_r": Vector3(-86, 12, 0), "el_r": Vector3(-24, 0, 0), "wr_r": Vector3(6, 0, 0),
+			"sh_l": Vector3(-72, 22, 20), "el_l": Vector3(-32, 0, 0),
+			"th_l": Vector3(-44, 0, 10), "kn_l": Vector3(46, 0, 0), "th_r": Vector3(28, 0, -10), "kn_r": Vector3(24, 0, 0),
+		},
+	},
+	# Varrida de volta esquerda -> direita.
+	"hm_swing_l": {
+		"windup": {
+			"root": Vector3(0, -0.16, 0.02), "hips": Vector3(0, 52, 0), "spine": Vector3(14, 58, 0),
+			"head": Vector3(0, -40, 0), "sh_r": Vector3(-82, 62, 0), "el_r": Vector3(-26, 0, 0), "wr_r": Vector3(-55, 0, 0),
+			"sh_l": Vector3(-30, 0, 50), "el_l": Vector3(-40, 0, 0),
+			"th_r": Vector3(-24, 0, -10), "kn_r": Vector3(24, 0, 0), "th_l": Vector3(18, 0, 10), "kn_l": Vector3(34, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.2, 0.24), "hips": Vector3(0, -40, 0), "spine": Vector3(22, -50, 0),
+			"head": Vector3(0, 34, 0), "sh_r": Vector3(-98, 52, 0), "el_r": Vector3(-5, 0, 0), "wr_r": Vector3(-6, 0, 0),
+			"sh_l": Vector3(-45, 0, 45), "el_l": Vector3(-45, 0, 0),
+			"th_r": Vector3(-38, 0, -10), "kn_r": Vector3(32, 0, 0), "th_l": Vector3(22, 0, 10), "kn_l": Vector3(22, 0, 0),
+		},
+		"follow": {
+			"root": Vector3(0, -0.24, 0.26), "hips": Vector3(0, -52, 0), "spine": Vector3(26, -66, 0),
+			"head": Vector3(0, 46, 0), "sh_r": Vector3(-84, -10, 0), "el_r": Vector3(-22, 0, 0), "wr_r": Vector3(4, 0, 0),
+			"sh_l": Vector3(-50, 0, 38), "el_l": Vector3(-48, 0, 0),
+			"th_r": Vector3(-40, 0, -10), "kn_r": Vector3(36, 0, 0), "th_l": Vector3(24, 0, 10), "kn_l": Vector3(22, 0, 0),
+		},
+	},
+	# Esmagamento: de pé, costas arqueadas, martelo atrás da cabeça; desaba com o corpo inteiro.
+	"hm_smash": {
+		"windup": {
+			"root": Vector3(0, 0.03, -0.16), "spine": Vector3(-32, 0, 0), "hips": Vector3(0, -6, 0),
+			"head": Vector3(-20, 0, 0), "sh_r": Vector3(-178, 12, -14), "el_r": Vector3(-88, 0, 0), "wr_r": Vector3(-55, 0, 0),
+			"sh_l": Vector3(-176, -12, 14), "el_l": Vector3(-88, 0, 0),
+			"th_l": Vector3(-8, 0, 6), "kn_l": Vector3(6, 0, 0), "th_r": Vector3(6, 0, -6), "kn_r": Vector3(10, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.32, 0.28), "spine": Vector3(42, 0, 0), "hips": Vector3.ZERO,
+			"head": Vector3(22, 0, 0), "sh_r": Vector3(-102, 12, 0), "el_r": Vector3(-4, 0, 0), "wr_r": Vector3(-4, 0, 0),
+			"sh_l": Vector3(-100, -12, 0), "el_l": Vector3(-4, 0, 0),
+			"th_l": Vector3(-52, 0, 6), "kn_l": Vector3(68, 0, 0), "th_r": Vector3(32, 0, -6), "kn_r": Vector3(46, 0, 0),
+		},
+		"follow": {
+			"root": Vector3(0, -0.36, 0.3), "spine": Vector3(46, 0, 0), "hips": Vector3.ZERO,
+			"head": Vector3(25, 0, 0), "sh_r": Vector3(-94, 12, 0), "el_r": Vector3(-4, 0, 0), "wr_r": Vector3(0, 0, 0),
+			"sh_l": Vector3(-92, -12, 0), "el_l": Vector3(-4, 0, 0),
+			"th_l": Vector3(-55, 0, 6), "kn_l": Vector3(72, 0, 0), "th_r": Vector3(34, 0, -6), "kn_r": Vector3(50, 0, 0),
+		},
+	},
+	# Investida: ombro à frente, martelo arrastado baixo e arrancado numa diagonal ascendente.
+	"hm_lunge": {
+		"windup": {
+			"root": Vector3(0, -0.26, -0.14), "hips": Vector3(0, -36, 0), "spine": Vector3(26, -26, 0),
+			"head": Vector3(-6, 24, 0), "sh_r": Vector3(18, -34, -16), "el_r": Vector3(-40, 0, 0), "wr_r": Vector3(-30, 0, 0),
+			"sh_l": Vector3(-30, -55, 20), "el_l": Vector3(-70, 0, 0),
+			"th_l": Vector3(-34, 0, 8), "kn_l": Vector3(62, 0, 0), "th_r": Vector3(30, 0, -8), "kn_r": Vector3(50, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.3, 0.38), "hips": Vector3(0, 30, 0), "spine": Vector3(34, 34, 0),
+			"head": Vector3(8, -28, 0), "sh_r": Vector3(-124, -42, 0), "el_r": Vector3(-4, 0, 0), "wr_r": Vector3(-6, 0, 0),
+			"sh_l": Vector3(-100, -20, 20), "el_l": Vector3(-26, 0, 0),
+			"th_l": Vector3(-58, 0, 8), "kn_l": Vector3(48, 0, 0), "th_r": Vector3(44, 0, -8), "kn_r": Vector3(4, 0, 0),
+		},
+		"follow": {
+			"root": Vector3(0, -0.32, 0.4), "hips": Vector3(0, 38, 0), "spine": Vector3(38, 44, 0),
+			"head": Vector3(10, -34, 0), "sh_r": Vector3(-118, -10, 0), "el_r": Vector3(-14, 0, 0), "wr_r": Vector3(0, 0, 0),
+			"sh_l": Vector3(-90, 10, 24), "el_l": Vector3(-30, 0, 0),
+			"th_l": Vector3(-60, 0, 8), "kn_l": Vector3(52, 0, 0), "th_r": Vector3(46, 0, -8), "kn_r": Vector3(4, 0, 0),
+		},
+	},
+	# Uppercut: agacha com o martelo arrastando no chão e sobe explodindo.
+	"hm_rising": {
+		"windup": {
+			"root": Vector3(0, -0.4, -0.1), "spine": Vector3(34, -18, 0), "head": Vector3(10, 12, 0), "hips": Vector3(0, -26, 0),
+			"sh_r": Vector3(8, -38, -22), "el_r": Vector3(-26, 0, 0), "wr_r": Vector3(-40, 0, 0),
+			"sh_l": Vector3(-20, -45, 24), "el_l": Vector3(-50, 0, 0),
+			"th_l": Vector3(-48, 0, 8), "kn_l": Vector3(84, 0, 0), "th_r": Vector3(30, 0, -8), "kn_r": Vector3(84, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, 0.1, 0.12), "hips": Vector3(0, 28, 0), "spine": Vector3(-14, 28, 0),
+			"head": Vector3(-20, -16, 0), "sh_r": Vector3(-158, -22, 0), "el_r": Vector3(-4, 0, 0), "wr_r": Vector3(-8, 0, 0),
+			"sh_l": Vector3(-140, -10, 20), "el_l": Vector3(-20, 0, 0),
+			"th_l": Vector3(-14, 0, 6), "kn_l": Vector3(10, 0, 0), "th_r": Vector3(-6, 0, -6), "kn_r": Vector3(20, 0, 0),
+		},
+		"follow": {
+			"root": Vector3(0, 0.12, 0.12), "hips": Vector3(0, 32, 0), "spine": Vector3(-20, 32, 0),
+			"head": Vector3(-24, -18, 0), "sh_r": Vector3(-172, -16, 0), "el_r": Vector3(-10, 0, 0), "wr_r": Vector3(-18, 0, 0),
+			"sh_l": Vector3(-150, -8, 22), "el_l": Vector3(-24, 0, 0),
+			"th_l": Vector3(-20, 0, 6), "kn_l": Vector3(24, 0, 0), "th_r": Vector3(-10, 0, -6), "kn_r": Vector3(40, 0, 0),
+		},
+	},
+	# Giro devastador (arte): agacha torcendo o corpo e gira 360° com o martelo estendido.
+	"hm_spin": {
+		"windup": {
+			"root": Vector3(0, -0.24, 0), "hips": Vector3(0, -60, 0), "spine": Vector3(18, -45, 0), "head": Vector3(0, 30, 0),
+			"sh_r": Vector3(-80, -100, -5), "el_r": Vector3(-20, 0, 0), "wr_r": Vector3(-30, 0, 0),
+			"sh_l": Vector3(-60, -60, 20), "el_l": Vector3(-40, 0, 0),
+			"th_l": Vector3(-18, 0, 12), "kn_l": Vector3(44, 0, 0), "th_r": Vector3(18, 0, -12), "kn_r": Vector3(48, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.16, 0), "yaw": Vector3(360, 0, 0), "hips": Vector3.ZERO, "spine": Vector3(14, 0, 0),
+			"head": Vector3.ZERO, "sh_r": Vector3(-96, -70, 0), "el_r": Vector3.ZERO, "wr_r": Vector3(-5, 0, 0),
+			"sh_l": Vector3(-90, -45, 15), "el_l": Vector3(-8, 0, 0),
+			"th_l": Vector3(-14, 0, 12), "kn_l": Vector3(30, 0, 0), "th_r": Vector3(14, 0, -12), "kn_r": Vector3(30, 0, 0),
+		},
+	},
+	# Ar: pancadas amplas com o corpo todo (pernas recolhidas).
+	"hm_air1": {
+		"windup": {
+			"hips": Vector3(0, -45, 0), "spine": Vector3(8, -34, 0), "sh_r": Vector3(-70, -108, 0), "el_r": Vector3(-28, 0, 0),
+			"wr_r": Vector3(-55, 0, 0), "sh_l": Vector3(-45, -60, 25), "el_l": Vector3(-60, 0, 0),
+			"th_l": Vector3(-55, 0, 6), "kn_l": Vector3(84, 0, 0), "th_r": Vector3(-34, 0, -6), "kn_r": Vector3(74, 0, 0),
+		},
+		"strike": {
+			"hips": Vector3(0, 42, 0), "spine": Vector3(14, 46, 0), "sh_r": Vector3(-98, -50, 0), "el_r": Vector3(-6, 0, 0),
+			"wr_r": Vector3(-8, 0, 0), "sh_l": Vector3(-85, -20, 20), "el_l": Vector3(-30, 0, 0),
+			"th_l": Vector3(-50, 0, 6), "kn_l": Vector3(80, 0, 0), "th_r": Vector3(-30, 0, -6), "kn_r": Vector3(70, 0, 0),
+		},
+	},
+	"hm_air2": {
+		"windup": {
+			"hips": Vector3(0, 40, 0), "spine": Vector3(8, 42, 0), "sh_r": Vector3(-82, 64, 0), "el_r": Vector3(-28, 0, 0),
+			"wr_r": Vector3(-55, 0, 0), "sh_l": Vector3(-20, 0, 55), "el_l": Vector3(-40, 0, 0),
+			"th_l": Vector3(-42, 0, 6), "kn_l": Vector3(72, 0, 0), "th_r": Vector3(-48, 0, -6), "kn_r": Vector3(82, 0, 0),
+		},
+		"strike": {
+			"hips": Vector3(0, -44, 0), "spine": Vector3(14, -48, 0), "sh_r": Vector3(-98, 54, 0), "el_r": Vector3(-6, 0, 0),
+			"wr_r": Vector3(-8, 0, 0), "sh_l": Vector3(-45, 0, 42), "el_l": Vector3(-45, 0, 0),
+			"th_l": Vector3(-40, 0, 6), "kn_l": Vector3(70, 0, 0), "th_r": Vector3(-45, 0, -6), "kn_r": Vector3(80, 0, 0),
+		},
+	},
+	# Mergulho: martelo erguido com as duas mãos, desce como um meteoro.
+	"hm_plunge": {
+		"windup": {
+			"spine": Vector3(-16, 0, 0), "head": Vector3(-12, 0, 0), "sh_r": Vector3(-176, 6, -12), "el_r": Vector3(-30, 0, 0),
+			"wr_r": Vector3(-20, 0, 0), "sh_l": Vector3(-172, -6, 12), "el_l": Vector3(-34, 0, 0),
+			"th_l": Vector3(-22, 0, 4), "kn_l": Vector3(54, 0, 0), "th_r": Vector3(-12, 0, -4), "kn_r": Vector3(48, 0, 0),
+		},
+		"strike": {
+			"root": Vector3.ZERO, "spine": Vector3(26, 0, 0), "head": Vector3(26, 0, 0), "hips": Vector3.ZERO,
+			"sh_r": Vector3(20, 0, -8), "el_r": Vector3.ZERO, "wr_r": Vector3.ZERO, "sh_l": Vector3(14, 0, 14), "el_l": Vector3(-10, 0, 0),
+			"th_l": Vector3(-8, 0, 4), "kn_l": Vector3(10, 0, 0), "th_r": Vector3(6, 0, -4), "kn_r": Vector3(12, 0, 0),
+		},
+	},
 	# Inimigo: varrida larga e curvada com a clava.
 	"e_swing": {
 		"windup": {
@@ -493,7 +674,7 @@ const DODGE := {
 const GUARD := {
 	"root": Vector3(0, -0.16, 0), "hips": Vector3(0, -10, 0), "spine": Vector3(8, 10, 0), "head": Vector3(6, 0, 0),
 	"sh_r": Vector3(-55, 35, -10), "el_r": Vector3(-75, 0, 0), "wr_r": Vector3(-20, 0, 0),
-	"sh_l": Vector3(-70, -30, 10), "el_l": Vector3(-80, 0, 0),
+	"sh_l": Vector3(-52, -34, 12), "el_l": Vector3(-72, 0, 0),
 	"th_l": Vector3(-22, 0, 6), "kn_l": Vector3(32, 0, 0), "th_r": Vector3(18, 0, -6), "kn_r": Vector3(38, 0, 0),
 }
 ## Guarda com escudo: antebraço esquerdo erguido com o escudo à frente; espada recuada, pronta.
@@ -608,7 +789,7 @@ static func step_length(run: float) -> float:
 
 
 ## Idle, andar, correr, pulo e queda.
-static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, time: float) -> Dictionary:
+static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, time: float, carry_wrist := 999.0) -> Dictionary:
 	if not on_floor:
 		return _cached("air_up", AIR_UP) if vy > 0.5 else _cached("air_down", AIR_DOWN)
 	if speed < 0.4:
@@ -624,7 +805,7 @@ static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, ti
 	var amp := _stride_amp(run)
 	var flex := lerpf(30.0, 70.0, run)
 	var arm := lerpf(18.0, 45.0, run)
-	return {
+	var pose := {
 		"root": Vector3(0, -absf(s) * lerpf(0.03, 0.07, run) - run * 0.04, 0),
 		"yaw": Vector3.ZERO, "pitch": Vector3.ZERO,
 		"hips": Vector3(0, s * lerpf(5.0, 9.0, run), 0),
@@ -634,16 +815,25 @@ static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, ti
 		"th_r": Vector3(s * amp, 0, 0), "kn_r": Vector3(maxf(-c, 0.0) * flex + 6.0, 0, 0),
 		"sh_l": Vector3(s * arm, 0, 10), "el_l": Vector3(-30.0 - run * 40.0, 0, 0),
 		# Espada carregada baixa, apontando para trás-baixo ao correr.
-		"sh_r": Vector3(-10.0 - s * arm * 0.4, 0, -14), "el_r": Vector3(-35.0 - run * 15.0, 0, 0),
-		"wr_r": Vector3(lerpf(10.0, 45.0, run), 0, 0),
+		"sh_r": Vector3(-10.0 - s * arm * 0.4, 0, -28), "el_r": Vector3(-35.0 - run * 15.0, 0, 0),
+		"wr_r": Vector3(lerpf(50.0, 85.0, run), 0, 0), # lâmina aponta para trás-baixo, ponta longe do chão
 	}
+	if carry_wrist < 900.0:
+		# Posição de descanso: arma apoiada no ombro direito, ponta para cima/trás (nunca para o chão).
+		pose["sh_r"] = Vector3(-22.0 - s * 4.0, 8, -34)
+		pose["el_r"] = Vector3(-105.0, 0, 0)
+		pose["wr_r"] = Vector3(carry_wrist + s * 3.0, 0, 0)
+		pose["sh_l"] = Vector3(s * arm * 0.7, 0, 10)
+	return pose
 
 
 ## t = tempo desde o início do golpe. Usa os mesmos tempos do AttackData.
-static func attack(anim: String, startup: float, active: float, recovery: float, t: float) -> Dictionary:
+## from = pose do corpo no instante em que o golpe começou (encadear sai do golpe anterior, sem
+## passar pela guarda). Vazio = parte da guarda.
+static func attack(anim: String, startup: float, active: float, recovery: float, t: float, from := {}) -> Dictionary:
 	var key := "atk_" + anim
 	if not _cache.has(key):
-		var def: Dictionary = ATTACKS.get(anim, ATTACKS["a1"])
+		var def: Dictionary = ATTACKS.get(ALIAS.get(anim, anim), ATTACKS["a1"])
 		var strike := full(def["strike"])
 		var follow := full(def["follow"]) if def.has("follow") else strike
 		_cache[key] = [full(def["windup"]), strike, follow]
@@ -651,30 +841,57 @@ static func attack(anim: String, startup: float, active: float, recovery: float,
 	var windup: Dictionary = keys[0]
 	var strike: Dictionary = keys[1]
 	var follow: Dictionary = keys[2]
+	var origin: Dictionary = from if not from.is_empty() else READY
 
 	var w: float = WEIGHT.get(anim, 0.3)
-	if t < startup: # antecipação: golpes pesados chegam antes à preparação e "seguram" lá
+	var hold: float = HOLD.get(anim, 0.0) # tempo "cravado" no fim do golpe (martelo no chão)
+	if t < startup: # antecipação
 		var u_wind := clampf(t / maxf(startup, 0.001), 0.0, 1.0)
-		var f := _ease_in_out(clampf(u_wind * (1.0 + w * 0.8), 0.0, 1.0))
-		var pose := mix(READY, windup, f)
+		var f: float
+		if w < 0.7:
+			# Leve: sai já em movimento (ease-out), sem o "soluço" de partir do zero. Encadeado,
+			# a pose de origem já é a do golpe anterior, então o corte continua o gesto.
+			f = lerpf(_ease_out(u_wind), _ease_in_out(u_wind), clampf(w * 1.2, 0.0, 1.0))
+		else:
+			# Pesado: acelera devagar, vence o peso e recua um pouco além da preparação (carga).
+			f = _ease_in_out(u_wind)
+			f *= 1.0 + 0.12 * w * sin(u_wind * PI)
+		var pose := mix(origin, windup, f)
 		# Pesados: o corpo afunda e se enrola um pouco mais no fim da preparação (carregando força).
 		if w > 0.0 and u_wind > 0.5:
 			var coil := (u_wind - 0.5) / 0.5 * w
 			pose["root"] = (pose["root"] as Vector3) + Vector3(0, -0.03 * coil, -0.02 * coil)
+		# Carga: o corpo treme de esforço conforme segura a preparação.
+		if CHARGE_SHAKE.has(anim) and u_wind > 0.45:
+			var amp := (u_wind - 0.45) / 0.55
+			var s := sin(t * 70.0) * amp
+			pose["spine"] = (pose["spine"] as Vector3) + Vector3(s * 2.0, s * 1.5, 0)
+			pose["sh_r"] = (pose["sh_r"] as Vector3) + Vector3(s * 3.0, 0, 0)
+			pose["root"] = (pose["root"] as Vector3) + Vector3(0, -absf(s) * 0.012, 0)
 		return pose
 	if t < startup + active: # impacto: cascata do quadril ao pulso, acelerando mais nos pesados
 		var u_hit := (t - startup) / maxf(active, 0.001)
-		return mix_lagged(windup, strike, u_hit, 1.0 + w)
-	# recuperação: continua o movimento (follow-through), assenta o peso e volta à guarda
+		return mix_lagged(windup, strike, u_hit, 1.0 + w * 1.6)
+	# recuperação: follow-through, (pesados) segura cravado, depois volta à guarda
 	var u_rec := clampf((t - startup - active) / maxf(recovery, 0.001), 0.0, 1.0)
+	var settle := lerpf(0.3, 0.16, w) # pesados "assentam" mais rápido (batida seca)
 	var out: Dictionary
-	if u_rec < 0.35:
-		var k := u_rec / 0.35
+	if u_rec < settle:
+		var k := u_rec / settle
 		out = mix(strike, follow, _ease_out(k))
 		# Afundamento do quadril após o impacto, proporcional ao peso do golpe.
 		out["root"] = (out["root"] as Vector3) + Vector3(0, -0.07 * w * sin(k * PI), 0)
+	elif u_rec < settle + hold:
+		out = follow.duplicate()
+		# Esforço de quem tenta soltar a arma do chão.
+		var e := sin(t * 55.0) * minf((u_rec - settle) / 0.08, 1.0)
+		out["spine"] = (out["spine"] as Vector3) + Vector3(e * 0.8, 0, 0)
+		out["sh_r"] = (out["sh_r"] as Vector3) + Vector3(e * 1.2, 0, 0)
 	else:
-		out = mix(follow, READY, _ease_in_out((u_rec - 0.35) / 0.65))
+		var r := (u_rec - settle - hold) / maxf(1.0 - settle - hold, 0.001)
+		# Leve: curva suave que já engata o próximo golpe. Pesado: puxa devagar e ganha velocidade.
+		var re := _ease_in_out(r) if w < 0.7 else _ease_in_out(pow(r, 0.8))
+		out = mix(follow, READY, re)
 	out["yaw"] = strike["yaw"] # o giro é normalizado pelo rig ao sair do ataque
 	return out
 

@@ -33,6 +33,18 @@ const ART_MAX := 100.0
 const ART_COST := 50.0
 const ART_GAIN_PER_DAMAGE := 0.8
 const ART_GAIN_ON_HURT := 4.0
+## Ataque carregado: segurar o ataque sobe a "estância" (0 a 3). Quanto maior, mais dano, mais
+## quebra de postura no alvo, e mais mitigação de dano e resistência a cambalear enquanto carrega.
+const CHARGE_TIMES: Array[float] = [0.45, 0.95, 1.55] # segundos para atingir as estâncias 1, 2 e 3
+const CHARGE_DAMAGE: Array[float] = [1.0, 1.4, 1.9, 2.6]
+const CHARGE_POISE: Array[float] = [1.0, 1.4, 2.0, 3.0] # multiplica o dano no poise do alvo
+const CHARGE_KNOCKBACK: Array[float] = [1.0, 1.2, 1.5, 1.9]
+const CHARGE_HITBOX: Array[float] = [1.0, 1.1, 1.25, 1.5]
+const CHARGE_ARMOR_DAMAGE: Array[float] = [0.85, 0.7, 0.55, 0.4] # mitigação: dano recebido x
+const CHARGE_ARMOR_POISE: Array[float] = [1.5, 2.5, 4.0, 8.0] # divide o dano no seu poise
+const CHARGE_COLORS: Array[Color] = [
+	Color(0.9, 0.9, 1.0), Color(1.0, 0.9, 0.45), Color(1.0, 0.55, 0.15), Color(1.0, 0.2, 0.12),
+]
 
 @export var walk_speed := 3.6
 @export var run_speed := 7.0
@@ -66,6 +78,10 @@ var coyote := 0.0
 var dodge_cooldown := 0.0
 var secondary_cooldown := 0.0
 var art_meter := 0.0
+## Estância de armadura ativa (-1 = nenhuma). Definida pelos estados Charge e Attack (golpe carregado).
+var armor_level := -1
+## 0..3: estância atual + progresso até a próxima (para o HUD). 0 = sem carga.
+var charge_progress := 0.0
 
 ## Direção do analógico no instante do último toque de ataque: "neutral", "fwd" ou "back".
 var attack_dir := "neutral"
@@ -382,6 +398,11 @@ func anim_motion() -> void:
 ## Aplicado pelo Health antes do dano: a guarda reduz dano/knockback ou nega (parry).
 func _filter_hit(hit: HitData) -> HitData:
 	_pending_poise = hit.damage * hit.poise_mult
+	if armor_level >= 0: # mitigação da estância
+		var a: HitData = hit.duplicate()
+		a.source = hit.source
+		a.damage = roundi(hit.damage * CHARGE_ARMOR_DAMAGE[armor_level])
+		hit = a
 	if machine.current_name() != "Guard":
 		# Escudo equipado: corta 75% de todo o dano recebido, mesmo sem levantar a guarda.
 		if GameState.secondary == &"shield":
@@ -420,6 +441,14 @@ func _on_parry(hit: HitData) -> void:
 		hit.source.call_deferred("parried", self)
 
 
+## Onda de choque no chão à frente (golpes sísmicos e ataque carregado máximo).
+func slam_fx(radius: float, color: Color) -> void:
+	Fx.burst(self, global_position + forward() * 1.4 + Vector3(0, 0.15, 0), radius, color, 0.55)
+	GameFeel.shake(0.28)
+	GameFeel.rumble(0.5, 0.6, 0.2)
+	Sfx.play(&"boom", global_position)
+
+
 ## Hit-stop local (chamado pelo GameFeel): congela estado e animação.
 func hit_pause(duration: float, shake_body := false) -> void:
 	machine.freeze(duration)
@@ -439,8 +468,13 @@ func _on_damaged(hit: HitData) -> void:
 		return
 	# Stance: golpes que não quebram o poise não fazem o player cambalear (só o dano é aplicado).
 	var state := machine.current_name()
-	if state != "Hurt" and not hit.poise_break and hit.launch <= 0.0 and hit.damage > 0:
-		poise -= _pending_poise
+	if state != "Hurt" and armor_level >= 3 and hit.launch <= 0.0 and hit.damage > 0:
+		rig.flash(Color(1.0, 0.3, 0.2), 0.2) # estância máxima: inabalável
+		return
+	var armor_div: float = CHARGE_ARMOR_POISE[armor_level] if armor_level >= 0 else 1.0
+	var breaks := hit.poise_break and armor_level < 2 # da estância 2 em diante a super armor aguenta quebra
+	if state != "Hurt" and not breaks and hit.launch <= 0.0 and hit.damage > 0:
+		poise -= _pending_poise / armor_div
 		if poise > 0.0:
 			rig.flash(Color(1.0, 0.85, 0.4), 0.2)
 			rig.kick("spine", Vector3(-120, 0, 0)) # tranco curto: sentiu o golpe mas não caiu

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "h_art_1"
+display_name = "Fúria: giro devastador"
+anim = "hm_spin"
+damage = 20
+knockback = 10.0
+hitstun = 0.7
+hitstop = 0.1
+poise_break = true
+startup = 0.24
+active = 0.32
+recovery = 0.12
+cancel_start = 99.0
+lunge_speed = 2.5
+use_sweep = false
+hitbox_size = Vector3(4.6, 1.8, 4.6)
+hitbox_offset = Vector3(0, 1.0, 0.2)

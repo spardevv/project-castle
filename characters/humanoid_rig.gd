@@ -15,6 +15,10 @@ enum Offhand { NONE, ORB, SHIELD }
 enum Headgear { HELMET, HOOD, HAIR, GOLEM }
 
 const HIP_Y := 0.95
+## Distância do pomo do martelo até a mão (pegada no meio do cabo).
+const HAMMER_GRIP := 0.5
+## Onde a mão esquerda segura a arma nos golpes de duas mãos (z no soquete da arma).
+const GRIP2 := {0: -0.14, 4: 0.12} # Weapon.SWORD, Weapon.HAMMER
 const THIGH_LEN := 0.45
 const SHIN_LEN := 0.45
 const FOOT_H := 0.06
@@ -92,6 +96,12 @@ var _on_floor := true
 var _vy := 0.0
 var _atk_anim := ""
 var _atk := Vector4.ZERO # startup, active, recovery, t
+var _charge_level := -1 # estância de carga (-1 = não carregando): tremor de esforço
+var _shield_front := 0.0 # 0 = escudo de lado no antebraço, 1 = de frente (guarda e investida)
+var _two_hand := 0.0 # 0..1: mão esquerda segurando a arma (golpes de duas mãos)
+var _sway := Vector2.ZERO # balanço da arma: x = lâmina (graus), y = abertura do ombro (graus)
+var _sway_vel := Vector2.ZERO
+var _atk_from: Dictionary = {} # pose do corpo quando o golpe atual começou
 var _progress := 0.0 # dodge/hurt (0..1) ou tempo (dead/knockdown/air)
 var _hurt_dir := Vector3.ZERO # direção do empurrão no espaço local do rig
 var _down_dur := 1.2
@@ -145,11 +155,14 @@ func set_motion(speed: float, on_floor: bool, vel_y: float) -> void:
 
 
 func set_attack(anim: String, startup: float, active: float, recovery: float, t: float) -> void:
-	if anim != _atk_anim or _mode != Mode.ATTACK:
+	# Golpe novo (outra animação, vindo de outro modo, ou o tempo recomeçou): guarda a pose atual
+	# do corpo. A preparação parte dela, então encadear golpes é um gesto contínuo.
+	if anim != _atk_anim or _mode != Mode.ATTACK or t < _atk.w - 0.0001:
 		# Normaliza o giro de 360° do golpe anterior para não "desenrolar" ao encadear.
 		var yaw: Vector3 = _cur["yaw"]
 		yaw.x = wrapf(yaw.x, -180.0, 180.0)
 		_cur["yaw"] = yaw
+		_atk_from = _cur.duplicate()
 	_mode = Mode.ATTACK
 	_atk_anim = anim
 	_atk = Vector4(startup, active, recovery, t)
@@ -195,12 +208,18 @@ func set_dead(time: float) -> void:
 	_progress = time
 
 
+## Carregando um golpe: nível 0..3 aumenta o tremor de esforço do corpo. -1 desliga.
+func set_charge(level: int) -> void:
+	_charge_level = level
+
+
 ## Aplica a pose-alvo atual imediatamente, sem suavização (usado por ferramentas de preview).
 func snap() -> void:
 	_cur = _compute_target(0.0).duplicate()
 	for j in Poses.JOINTS:
 		_vel[j] = Vector3.ZERO
 	_apply()
+	_two_hand_apply(0.0, true)
 
 
 ## A cabeça vira para este ponto (com atraso e limites). active=false volta a olhar para frente.
@@ -243,7 +262,7 @@ func freeze(duration: float, shake_body := false) -> void:
 func _compute_target(delta: float) -> Dictionary:
 	match _mode:
 		Mode.ATTACK:
-			return Poses.attack(_atk_anim, _atk.x, _atk.y, _atk.z, _atk.w)
+			return Poses.attack(_atk_anim, _atk.x, _atk.y, _atk.z, _atk.w, _atk_from)
 		Mode.DODGE:
 			return Poses.dodge(_progress)
 		Mode.GUARD:
@@ -257,7 +276,7 @@ func _compute_target(delta: float) -> Dictionary:
 		Mode.KNOCKDOWN:
 			return Poses.knockdown(_progress, _down_dur)
 	# A fase do passo avança com a distância andada (em _track_motion), não com o tempo.
-	return Poses.locomotion(_phase, _speed, _on_floor, _vy, _time)
+	return Poses.locomotion(_phase, _speed, _on_floor, _vy, _time, _carry_wrist())
 
 
 func _process(delta: float) -> void:
@@ -270,6 +289,7 @@ func _process(delta: float) -> void:
 				_cur[j] = snap_pose.get(j, Vector3.ZERO)
 				_vel[j] = Vector3.ZERO
 		_apply()
+		_two_hand_apply(0.0)
 		if _freeze_shake and _freeze_t > 0.0:
 			_body_root.position = Vector3(randf_range(-1.0, 1.0), 0.0, randf_range(-1.0, 1.0)) * 0.03
 		else:
@@ -293,6 +313,7 @@ func _process(delta: float) -> void:
 	_integrate(target, delta)
 	_update_secondary(delta)
 	_apply()
+	_two_hand_apply(delta)
 	_update_cloth(delta)
 	_leg_ik()
 
@@ -300,6 +321,13 @@ func _process(delta: float) -> void:
 ## Juntas como molas amortecidas (Euler semi-implícito, subpassos para estabilidade).
 func _integrate(target: Dictionary, delta: float) -> void:
 	var sp: Vector2 = SPRING[_mode]
+	if _mode == Mode.ATTACK:
+		# Espada: mola mais firme e bem amortecida (fluida, sem tremer). Martelo: mais lenta e com
+		# folga (a massa passa um pouco do ponto e assenta). Outros: o padrão.
+		if weapon == Weapon.SWORD:
+			sp = Vector2(36.0, 0.72)
+		elif weapon == Weapon.HAMMER:
+			sp = Vector2(24.0, 0.46)
 	var steps := maxi(1, ceili(delta / (1.0 / 90.0)))
 	var dt := delta / steps
 	for j in Poses.JOINTS:
@@ -352,6 +380,18 @@ func _update_secondary(delta: float) -> void:
 	_lean_vel += ((target_lean - _lean) * lw * lw - _lean_vel * 2.0 * 0.7 * lw) * delta
 	_lean += _lean_vel * delta
 
+	# Arma acompanha o corpo: acelerar a deixa para trás, curvar a joga para fora, e ela balança
+	# com o passo ao correr.
+	var sway_target := Vector2.ZERO
+	if _mode == Mode.LOCOMOTION and _on_floor and _speed > 0.4:
+		var la := global_transform.basis.orthonormalized().inverse() * _accel
+		var run_k := clampf(inverse_lerp(2.5, 7.0, _speed), 0.0, 1.0)
+		sway_target.x = clampf(la.z * 1.6, -14.0, 14.0) + sin(_phase * 2.0) * 3.5 * run_k
+		sway_target.y = clampf(-la.x * 1.2 - _yaw_rate * 2.0, -10.0, 10.0)
+	var sw := 11.0
+	_sway_vel += ((sway_target - _sway) * sw * sw - _sway_vel * 2.0 * 0.45 * sw) * delta
+	_sway += _sway_vel * delta
+
 	# Aterrissagem: tranco para baixo no quadril; a mola devolve (e o IK dobra os joelhos).
 	if _mode == Mode.LOCOMOTION:
 		if _on_floor and not _was_on_floor and _world_vel.y < -2.0:
@@ -382,6 +422,81 @@ func _apply() -> void:
 	for j in ROT_JOINTS:
 		(_joints[j] as Node3D).rotation_degrees = _cur[j]
 	(_joints["head"] as Node3D).rotation_degrees += _head_off
+	if _charge_level >= 0 and _mode == Mode.ATTACK:
+		var amp := 0.4 + 0.9 * _charge_level
+		var tremor := sin(_time * 63.0) * amp
+		(_joints["spine"] as Node3D).rotation_degrees.x += tremor
+		(_joints["sh_r"] as Node3D).rotation_degrees.x += sin(_time * 71.0) * amp * 1.4
+		_hips.position.y -= absf(tremor) * 0.006
+	if _mode == Mode.LOCOMOTION:
+		(_joints["wr_r"] as Node3D).rotation_degrees.x += _sway.x
+		(_joints["sh_r"] as Node3D).rotation_degrees.z += _sway.y
+
+
+## Ângulo do pulso (graus) para apoiar a arma no ombro ao andar; 999 = arma que não se apoia.
+func _carry_wrist() -> float:
+	match weapon:
+		Weapon.HAMMER:
+			return -112.0
+		Weapon.SWORD, Weapon.CLUB:
+			return -92.0
+	return 999.0
+
+
+## Golpes de duas mãos: a mão esquerda segue o cabo da arma (IK de dois ossos) e o que ela
+## segurava (orbe, escudo) é guardado enquanto isso.
+func _two_hand_apply(delta: float, instant := false) -> void:
+	var want := _mode == Mode.ATTACK and GRIP2.has(int(weapon)) and Poses.TWO_HANDED.has(_atk_anim)
+	var goal := 1.0 if want else 0.0
+	_two_hand = goal if instant else move_toward(_two_hand, goal, delta / 0.14)
+	# Escudo: de lado no antebraço (andar, atacar, parado); de frente só na guarda e na investida.
+	var forearm: Node3D = _joints["el_l"]
+	var shield := forearm.get_node_or_null("ShieldSocket") as Node3D
+	if shield != null:
+		var front := (_mode == Mode.GUARD and _guard_shield) or (_mode == Mode.ATTACK and _atk_anim == "bash")
+		var goal_f := 1.0 if front else 0.0
+		_shield_front = goal_f if instant else move_toward(_shield_front, goal_f, delta / 0.15)
+		var q_side := Quaternion.from_euler(Vector3(0, 0, PI / 2.0))
+		var q_front := Quaternion.from_euler(Vector3(PI / 2.0, 0, 0))
+		shield.basis = Basis(q_side.slerp(q_front, _shield_front))
+		shield.position = Vector3(0.09, -0.16, 0.0).lerp(Vector3(0, -0.16, -0.07), _shield_front)
+	var stow := _two_hand > 0.3
+	var holders: Array = [[_hand_l, "OffhandSocket"], [_joints.get("el_l"), "ShieldSocket"]]
+	for pair in holders:
+		var holder := pair[0] as Node
+		if holder == null:
+			continue
+		var item := holder.get_node_or_null(pair[1] as String) as Node3D
+		if item != null:
+			item.visible = not stow
+	if _two_hand <= 0.001 or _wrist == null:
+		return
+	var socket := _wrist.get_node_or_null("WeaponSocket") as Node3D
+	if socket == null:
+		return
+	var sh: Node3D = _joints["sh_l"]
+	var el: Node3D = _joints["el_l"]
+	var spine := sh.get_parent() as Node3D
+	var grip: Vector3 = spine.global_transform.affine_inverse() * (socket.global_transform * Vector3(0, 0, GRIP2[int(weapon)]))
+	var a := 0.3
+	var b := 0.29
+	var v := grip - sh.position
+	var d := clampf(v.length(), 0.12, a + b - 0.01)
+	var dir := v.normalized()
+	var bend := PI - acos(clampf((a * a + b * b - d * d) / (2.0 * a * b), -1.0, 1.0))
+	var al := acos(clampf((a * a + d * d - b * b) / (2.0 * a * d), -1.0, 1.0))
+	var pole := Vector3(0.6, -1.0, -0.3) # cotovelo aponta para baixo e um pouco para fora
+	var perp := pole - dir * pole.dot(dir)
+	perp = perp.normalized() if perp.length() > 0.01 else Vector3.RIGHT
+	var upper := dir * cos(al) + perp * sin(al)
+	var elbow := sh.position + upper * a
+	var fore := (sh.position + dir * d - elbow).normalized()
+	var zax := (fore - upper * fore.dot(upper)).normalized()
+	var yax := -upper
+	var ik := Basis(yax.cross(zax), yax, zax)
+	var k := smoothstep(0.0, 1.0, _two_hand)
+	sh.basis = Basis(sh.basis.get_rotation_quaternion().slerp(ik.get_rotation_quaternion(), k))
+	el.rotation_degrees = el.rotation_degrees.lerp(Vector3(-rad_to_deg(bend), 0, 0), k)
 
 
 ## Tabardo e capa: seguem o corpo com atraso e tendem a pender para baixo no mundo.
@@ -591,6 +706,7 @@ func _make_weapon() -> void:
 			var steel := _mat(Color(0.82, 0.86, 0.92), 0.25)
 			steel.metallic = 0.8
 			_box(socket, Vector3(0.04, 0.04, 0.16), Vector3(0, 0, 0.03), mat) # empunhadura
+			_box(socket, Vector3(0.04, 0.04, 0.2), Vector3(0, 0, -0.1), mat) # cabo longo (2ª mão)
 			_box(socket, Vector3(0.05, 0.22, 0.04), Vector3(0, 0, 0.12), mat) # guarda
 			_box(socket, Vector3(0.012, 0.07, 0.95), Vector3(0, 0, 0.6), steel) # lâmina
 			sword_base.position = Vector3(0, 0, 0.12)
@@ -606,12 +722,14 @@ func _make_weapon() -> void:
 			var haft := _mat(Color(0.36, 0.24, 0.14), 0.85)
 			var iron := _mat(Color(0.55, 0.57, 0.62), 0.35)
 			iron.metallic = 0.7
-			_box(socket, Vector3(0.055, 0.055, 1.0), Vector3(0, 0, 0.45), haft)
-			_box(socket, Vector3(0.07, 0.07, 0.1), Vector3(0, 0, -0.04), mat) # pomo
-			_box(socket, Vector3(0.3, 0.24, 0.22), Vector3(0, 0, 1.0), iron) # cabeça
-			_box(socket, Vector3(0.33, 0.07, 0.25), Vector3(0, 0.14, 1.0), mat) # reforço
+			_box(socket, Vector3(0.055, 0.055, 1.45), Vector3(0, 0, 0.675), haft)
+			_box(socket, Vector3(0.07, 0.07, 0.1), Vector3(0, 0, -0.06), mat) # pomo
+			_box(socket, Vector3(0.3, 0.24, 0.22), Vector3(0, 0, 1.4), iron) # cabeça
+			_box(socket, Vector3(0.33, 0.07, 0.25), Vector3(0, 0.14, 1.4), mat) # reforço
+			# Pegada no meio do cabo: a mão fica 0,5 m depois do pomo (o +Z do soquete desce pelo antebraço).
+			socket.position = Vector3(0, HAMMER_GRIP, 0)
 			sword_base.position = Vector3(0, 0, 0.05) # varre o cabo inteiro (acerta também de perto)
-			sword_tip.position = Vector3(0, 0, 1.12)
+			sword_tip.position = Vector3(0, 0, 1.52)
 		Weapon.STAFF:
 			# Cajado do sacerdote: haste com um cristal brilhante no topo.
 			var wood := _mat(Color(0.5, 0.38, 0.22), 0.8)

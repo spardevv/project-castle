@@ -14,6 +14,12 @@ func _init() -> void:
 	for id in ["a1", "a2", "a3", "spin", "overhead", "stinger", "rising", "air1", "air2", "plunge"]:
 		add_move(load("res://data/attacks/longsword/%s.tres" % id))
 
+	# Arte: Tempestade de Lâminas (investida cortando, giro em área, finalizador que lança).
+	art_name = "Tempestade de Lâminas"
+	art_color = Color(1.0, 0.55, 0.15)
+	for id in ["art_1", "art_2", "art_3"]:
+		art_sequence.append(load("res://data/attacks/longsword/%s.tres" % id))
+
 	start = {"tap": "a1", "tap_fwd": "stinger", "tap_back": "rising"}
 	start_air = {"tap": "air1", "tap_fwd": "air1", "tap_back": "plunge"}
 

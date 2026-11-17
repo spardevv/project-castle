@@ -5,6 +5,10 @@ extends RefCounted
 ## Chaves de aresta: "tap", "tap_fwd", "tap_back", "hold", "pause", "pause_fwd"...
 
 var display_name := ""
+## Arte da arma (RT): sequência própria de cada arma e cor do rastro durante ela.
+var art_name := "Arte"
+var art_sequence: Array[AttackData] = []
+var art_color := Color(1.0, 0.55, 0.15)
 var moves: Dictionary = {} # id -> AttackData
 var start: Dictionary = {} # chave -> id (a partir do neutro, no chão)
 var start_air: Dictionary = {} # idem, no ar

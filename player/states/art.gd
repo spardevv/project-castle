@@ -2,14 +2,9 @@ extends PlayerState
 ## Arte da arma (RT) — "Tempestade de Lâminas": investida cortando, giro em área e finalizador
 ## que lança. Gasta medidor; o player fica com i-frames e super armor durante toda a sequência.
 
-const SEQUENCE: Array[AttackData] = [
-	preload("res://data/attacks/longsword/art_1.tres"),
-	preload("res://data/attacks/longsword/art_2.tres"),
-	preload("res://data/attacks/longsword/art_3.tres"),
-]
-const TRAIL_COLOR := Color(1.0, 0.55, 0.15)
 
 var _i := 0
+var _seq: Array[AttackData] = []
 var _data: AttackData
 var _t := 0.0
 var _hit_started := false
@@ -23,8 +18,9 @@ func enter(_msg: Dictionary = {}) -> void:
 	p.combo_memory_time = 0.0
 	p.health.invulnerable = true
 	_old_trail = p.rig.trail_color
-	p.rig.trail_color = TRAIL_COLOR
-	p.rig.flash(Color(1.0, 0.6, 0.2), 0.35)
+	_seq = p.moveset.art_sequence # cada arma tem a sua arte
+	p.rig.trail_color = p.moveset.art_color
+	p.rig.flash(p.moveset.art_color.lightened(0.2), 0.35)
 	Sfx.play(&"art_use", p.global_position + Vector3(0, 1.0, 0))
 	GameFeel.slowmo(0.25, 0.12)
 	GameFeel.shake(0.2)
@@ -44,7 +40,7 @@ func exit() -> void:
 
 func _begin() -> void:
 	var p := player
-	_data = SEQUENCE[_i]
+	_data = _seq[_i]
 	_t = 0.0
 	_hit_started = false
 	_hit_ended = false
@@ -79,18 +75,20 @@ func physics_update(delta: float) -> void:
 		p.sword_arc.visible = p.debug_hitbox
 		p.rig.trail_active = true
 		Sfx.play(&"swing_heavy", p.global_position + Vector3(0, 1.2, 0), 0.0, 1.0 + 0.1 * _i)
+		if d.shockwave:
+			p.slam_fx(3.4, p.moveset.art_color)
 	if _hit_started and not _hit_ended and _t >= active_end:
 		_hit_ended = true
 		p.attack_hitbox.deactivate()
 		p.sword_arc.visible = false
-		if _i == SEQUENCE.size() - 1:
+		if _i == _seq.size() - 1:
 			p.rig.trail_active = false
 
 	p.move_and_slide()
 
 	if _t >= d.total_time():
 		_i += 1
-		if _i < SEQUENCE.size():
+		if _i < _seq.size():
 			_begin()
 		else:
 			land_or_fall()

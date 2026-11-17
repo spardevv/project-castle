@@ -14,6 +14,12 @@ func _init() -> void:
 	for id in ["h1", "h2", "h3", "h_charge", "h_lunge", "h_rising", "h_air1", "h_air2", "h_plunge"]:
 		add_move(load("res://data/attacks/hammer/%s.tres" % id))
 
+	# Arte: Fúria Sísmica (giro devastador, uppercut que lança, impacto sísmico que abala o chão).
+	art_name = "Fúria Sísmica"
+	art_color = Color(1.0, 0.22, 0.1)
+	for id in ["h_art_1", "h_art_2", "h_art_3"]:
+		art_sequence.append(load("res://data/attacks/hammer/%s.tres" % id))
+
 	start = {"tap": "h1", "tap_fwd": "h_lunge", "tap_back": "h_rising"}
 	start_air = {"tap": "h_air1", "tap_fwd": "h_air1", "tap_back": "h_plunge"}
 

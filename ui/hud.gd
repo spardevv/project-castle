@@ -14,11 +14,14 @@ var _flash_tween: Tween
 var _art_bars: Array[ProgressBar] = []
 var _art_fills: Array[StyleBoxFlat] = []
 var _art_label: Label
+var _charge_bars: Array[ProgressBar] = []
+var _charge_fills: Array[StyleBoxFlat] = []
 var _status_label: Label
 
 
 func _ready() -> void:
 	_build_art_meter()
+	_build_charge_meter()
 	summon_label.position.y = 78.0
 	controls_panel.position.y = 190.0
 	_player = get_tree().get_first_node_in_group("player") as Player
@@ -53,6 +56,23 @@ func _build_art_meter() -> void:
 	add_child(_status_label)
 
 
+## Estâncias do ataque carregado: 3 segmentos que enchem enquanto o botão é segurado.
+func _build_charge_meter() -> void:
+	for i in 3:
+		var pb := ProgressBar.new()
+		pb.show_percentage = false
+		pb.max_value = 1.0
+		pb.position = Vector2(24 + i * 100, 100)
+		pb.size = Vector2(96, 9)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = Player.CHARGE_COLORS[i + 1]
+		pb.add_theme_stylebox_override("fill", fill)
+		pb.visible = false
+		add_child(pb)
+		_charge_bars.append(pb)
+		_charge_fills.append(fill)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_controls"):
 		controls_panel.visible = not controls_panel.visible
@@ -67,7 +87,12 @@ func _process(_delta: float) -> void:
 		var v := clampf(_player.art_meter - i * Player.ART_COST, 0.0, Player.ART_COST)
 		_art_bars[i].value = v
 		_art_fills[i].bg_color = ART_READY_COLOR if v >= Player.ART_COST else ART_COLOR
-	_art_label.text = "Arte [%s]%s" % [g.label(&"weapon_art"), " PRONTA" if _player.can_art() else ""]
+	_art_label.text = "%s [%s]%s" % [_player.moveset.art_name, g.label(&"weapon_art"), " PRONTA" if _player.can_art() else ""]
+
+	# Estâncias de carga
+	for i in 3:
+		_charge_bars[i].visible = _player.charge_progress > 0.0
+		_charge_bars[i].value = clampf(_player.charge_progress - i, 0.0, 1.0)
 
 	# Buffs e debuffs ativos no player
 	var effects := StatusEffects.of(_player).active
