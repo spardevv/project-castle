@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "overhead"
+display_name = "Overhead"
+damage = 28
+knockback = 10.0
+hitstun = 0.6
+hitstop = 0.12
+startup = 0.3
+active = 0.14
+recovery = 0.5
+cancel_start = 0.55
+lunge_speed = 4.0
+hitbox_size = Vector3(2.4, 2, 2.2)
+hitbox_offset = Vector3(0, 1.1, 1.4)

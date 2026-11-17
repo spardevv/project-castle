@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "air2"
+display_name = "Corte aéreo 2"
+damage = 10
+knockback = 3.0
+hitstun = 0.6
+hitstop = 0.06
+launch = 3.0
+startup = 0.08
+active = 0.1
+recovery = 0.25
+cancel_start = 0.2
+lunge_speed = 1.5
+air_gravity = 0.25
+use_sweep = false
+hitbox_size = Vector3(2.6, 1.8, 2)
+hitbox_offset = Vector3(0, 1, 1.2)

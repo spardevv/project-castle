@@ -1,0 +1,49 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://summon/summon.tscn" id="1"]
+[ext_resource type="Script" path="res://summon/states/support.gd" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_priest"]
+radius = 0.4
+height = 1.8
+
+[node name="Priest" instance=ExtResource("1")]
+arrival = &"holy"
+speed = 7.5
+follow_distance = 3.5
+contact_radius = 0.42
+contact_mass = 0.9
+
+[node name="CollisionShape3D" parent="." index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_priest")
+
+[node name="Health" parent="." index="1"]
+max_health = 90
+
+[node name="CollisionShape3D" parent="Hurtbox" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_priest")
+
+[node name="Rig" parent="Visual" index="0"]
+skin = Color(0.92, 0.78, 0.65, 1)
+cloth = Color(0.93, 0.9, 0.8, 1)
+accent = Color(0.8, 0.65, 0.25, 1)
+height = 1.0
+bulk = 0.9
+weapon = 5
+trail_color = Color(1, 0.9, 0.5, 1)
+headgear = 1
+cape = true
+cape_color = Color(0.85, 0.75, 0.4, 1)
+tabard = true
+pauldron_scale = 0.8
+fist_scale = 1.0
+runes = false
+rune_color = Color(0.7, 0.95, 1, 1)
+
+[node name="Follow" parent="StateMachine" index="0"]
+script = ExtResource("2")
+
+[node name="Chase" parent="StateMachine" index="1"]
+script = ExtResource("2")

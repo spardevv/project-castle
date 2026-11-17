@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "h2"
+display_name = "Golpe de volta"
+anim = "a2"
+damage = 18
+knockback = 9.0
+hitstun = 0.5
+hitstop = 0.11
+poise_mult = 2.5
+startup = 0.3
+active = 0.16
+recovery = 0.52
+cancel_start = 0.42
+lunge_speed = 3.5

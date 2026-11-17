@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "a2"
+display_name = "Corte esquerdo"
+damage = 12
+knockback = 4.5
+hitstun = 0.3
+hitstop = 0.06
+startup = 0.09
+active = 0.12
+recovery = 0.25
+cancel_start = 0.18
+lunge_speed = 3.5
+hitbox_size = Vector3(2.4, 1.6, 1.8)
+hitbox_offset = Vector3(0, 1, 1.2)

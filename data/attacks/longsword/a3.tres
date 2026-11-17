@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "a3"
+display_name = "Corte cruzado"
+damage = 18
+knockback = 9.0
+hitstun = 0.45
+hitstop = 0.09
+startup = 0.12
+active = 0.15
+recovery = 0.4
+cancel_start = 0.5
+lunge_speed = 5.0
+hitbox_size = Vector3(2.8, 1.8, 2.2)
+hitbox_offset = Vector3(0, 1, 1.4)

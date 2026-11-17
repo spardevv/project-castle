@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "h3"
+display_name = "Esmagamento"
+anim = "overhead"
+damage = 34
+knockback = 12.0
+hitstun = 0.7
+hitstop = 0.16
+poise_break = true
+startup = 0.5
+active = 0.16
+recovery = 0.75
+cancel_start = 99.0
+lunge_speed = 3.0

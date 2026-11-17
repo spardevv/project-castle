@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "spin"
+display_name = "Giro"
+damage = 20
+knockback = 8.0
+hitstun = 0.5
+hitstop = 0.1
+startup = 0.15
+active = 0.2
+recovery = 0.45
+cancel_start = 0.55
+lunge_speed = 1.0
+hitbox_size = Vector3(3.4, 1.8, 3.4)
+hitbox_offset = Vector3(0, 1, 0.2)

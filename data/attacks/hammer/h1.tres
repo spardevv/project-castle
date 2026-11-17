@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "h1"
+display_name = "Varrida pesada"
+anim = "e_swing"
+damage = 16
+knockback = 8.0
+hitstun = 0.5
+hitstop = 0.1
+poise_mult = 2.5
+startup = 0.28
+active = 0.16
+recovery = 0.5
+cancel_start = 0.4
+lunge_speed = 3.5

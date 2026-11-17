@@ -1,0 +1,47 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://enemies/enemy.tscn" id="1"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.7
+height = 2.5
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
+radius = 0.78
+height = 2.6
+
+[node name="Brute" instance=ExtResource("1")]
+move_speed = 2.4
+detect_range = 16.0
+attack_range = 2.8
+move_set = &"brute"
+poise_max = 80.0
+poise_regen = 15.0
+always_armored = true
+knockdown_force = 14.0
+can_be_launched = false
+separation_radius = 2.2
+contact_radius = 0.75
+contact_mass = 6.0
+
+[node name="CollisionShape3D" parent="." index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="Health" parent="." index="1"]
+max_health = 180
+
+[node name="CollisionShape3D" parent="Hurtbox" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="Rig" parent="Visual" index="0"]
+skin = Color(0.62, 0.55, 0.62, 1)
+cloth = Color(0.32, 0.22, 0.38, 1)
+accent = Color(0.2, 0.18, 0.2, 1)
+height = 1.35
+bulk = 1.6
+weapon = 1
+trail_color = Color(1, 0.35, 0.2, 1)
+headgear = 0
+pauldron_scale = 0.8

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "h_charge"
+display_name = "Esmagamento carregado"
+anim = "overhead"
+damage = 46
+knockback = 14.0
+hitstun = 0.9
+hitstop = 0.2
+poise_break = true
+startup = 0.8
+active = 0.18
+recovery = 0.85
+cancel_start = 99.0
+lunge_speed = 4.0

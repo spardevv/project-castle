@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "plunge"
+display_name = "Mergulho"
+damage = 22
+knockback = 8.0
+hitstun = 0.5
+hitstop = 0.1
+startup = 0.14
+active = 1.2
+recovery = 0.4
+cancel_start = 99.0
+lunge_speed = 0.0
+dive_speed = 28.0
+turn_to_input = false
+use_sweep = false
+hitbox_size = Vector3(2.4, 2.4, 2.4)
+hitbox_offset = Vector3(0, 0.6, 0.6)

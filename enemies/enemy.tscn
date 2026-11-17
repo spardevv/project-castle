@@ -1,0 +1,111 @@
+[gd_scene load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://enemies/enemy.gd" id="1"]
+[ext_resource type="Script" path="res://combat/health.gd" id="2"]
+[ext_resource type="Script" path="res://combat/hurtbox.gd" id="3"]
+[ext_resource type="Script" path="res://combat/hitbox.gd" id="4"]
+[ext_resource type="Script" path="res://systems/state_machine.gd" id="5"]
+[ext_resource type="Script" path="res://enemies/states/idle.gd" id="6"]
+[ext_resource type="Script" path="res://enemies/states/chase.gd" id="7"]
+[ext_resource type="Script" path="res://enemies/states/attack.gd" id="8"]
+[ext_resource type="Script" path="res://enemies/states/stagger.gd" id="9"]
+[ext_resource type="Script" path="res://enemies/states/dead.gd" id="10"]
+[ext_resource type="Script" path="res://enemies/states/pulled.gd" id="11"]
+[ext_resource type="PackedScene" path="res://characters/humanoid_rig.tscn" id="12"]
+[ext_resource type="Script" path="res://combat/weapon_trail.gd" id="13"]
+[ext_resource type="Script" path="res://enemies/states/held.gd" id="14"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_e"]
+radius = 0.45
+height = 1.8
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
+radius = 0.5
+height = 1.9
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_e"]
+radius = 0.45
+height = 1.8
+
+[sub_resource type="BoxMesh" id="BoxMesh_nose"]
+size = Vector3(0.25, 0.25, 0.4)
+
+[sub_resource type="StandardMaterial3D" id="Mat_e"]
+albedo_color = Color(0.25, 0.5, 0.25, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_atk"]
+size = Vector3(1.6, 1.4, 1.4)
+
+[node name="Enemy" type="CharacterBody3D"]
+script = ExtResource("1")
+floor_snap_length = 0.3
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_e")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2")
+max_health = 60
+
+[node name="Hurtbox" type="Area3D" parent="." node_paths=PackedStringArray("health")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3")
+health = NodePath("../Health")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Rig" parent="Visual" instance=ExtResource("12")]
+skin = Color(0.55, 0.7, 0.45, 1)
+cloth = Color(0.25, 0.4, 0.22, 1)
+accent = Color(0.3, 0.22, 0.15, 1)
+bulk = 1.1
+weapon = 1
+trail_color = Color(1, 0.6, 0.3, 1)
+headgear = 2
+
+[node name="Hitbox" type="Area3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1)
+collision_layer = 16
+collision_mask = 2
+monitoring = false
+monitorable = false
+script = ExtResource("4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Visual/Hitbox"]
+shape = SubResource("BoxShape3D_atk")
+
+[node name="WeaponTrail" type="MeshInstance3D" parent="." node_paths=PackedStringArray("rig")]
+script = ExtResource("13")
+rig = NodePath("../Visual/Rig")
+
+[node name="StateMachine" type="Node" parent="."]
+script = ExtResource("5")
+initial_state = &"Idle"
+
+[node name="Idle" type="Node" parent="StateMachine"]
+script = ExtResource("6")
+
+[node name="Chase" type="Node" parent="StateMachine"]
+script = ExtResource("7")
+
+[node name="Attack" type="Node" parent="StateMachine"]
+script = ExtResource("8")
+
+[node name="Stagger" type="Node" parent="StateMachine"]
+script = ExtResource("9")
+
+[node name="Dead" type="Node" parent="StateMachine"]
+script = ExtResource("10")
+
+[node name="Pulled" type="Node" parent="StateMachine"]
+script = ExtResource("11")
+
+[node name="Held" type="Node" parent="StateMachine"]
+script = ExtResource("14")

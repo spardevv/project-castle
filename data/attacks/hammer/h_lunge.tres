@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "h_lunge"
+display_name = "Investida do martelo"
+anim = "stinger"
+damage = 22
+knockback = 9.0
+hitstun = 0.6
+hitstop = 0.12
+poise_break = true
+startup = 0.26
+active = 0.18
+recovery = 0.5
+cancel_start = 0.4
+lunge_speed = 13.0

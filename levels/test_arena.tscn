@@ -1,0 +1,121 @@
+[gd_scene format=3 uid="uid://8242urp5v40v"]
+
+[ext_resource type="PackedScene" path="res://player/player.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://player/camera_rig.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://enemies/enemy.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://ui/hud.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://enemies/brute.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://enemies/archer.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://ui/equipment_menu.tscn" id="7"]
+
+[sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
+sky_top_color = Color(0.08, 0.1, 0.2, 1)
+sky_horizon_color = Color(0.25, 0.22, 0.3, 1)
+ground_horizon_color = Color(0.25, 0.22, 0.3, 1)
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("Sky_mat")
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+ambient_light_source = 3
+ambient_light_color = Color(0.4, 0.4, 0.55, 1)
+fog_enabled = true
+fog_light_color = Color(0.2, 0.2, 0.3, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_floor"]
+albedo_color = Color(0.35, 0.35, 0.38, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_block"]
+albedo_color = Color(0.5, 0.45, 0.4, 1)
+
+[node name="TestArena" type="Node3D" unique_id=549891699]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=880005717]
+environment = SubResource("Env_1")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=602784243]
+transform = Transform3D(1, 0, 0, 0, 0.643, 0.766, 0, -0.766, 0.643, 0, 10, 0)
+light_color = Color(0.8, 0.8, 1, 1)
+shadow_enabled = true
+
+[node name="Floor" type="CSGBox3D" parent="." unique_id=899118723]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+use_collision = true
+size = Vector3(60, 1, 60)
+material = SubResource("Mat_floor")
+
+[node name="WallN" type="CSGBox3D" parent="." unique_id=552688519]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -30)
+use_collision = true
+size = Vector3(60, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="WallS" type="CSGBox3D" parent="." unique_id=594565525]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 30)
+use_collision = true
+size = Vector3(60, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="WallE" type="CSGBox3D" parent="." unique_id=892484621]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 3, 0)
+use_collision = true
+size = Vector3(1, 6, 60)
+material = SubResource("Mat_block")
+
+[node name="WallW" type="CSGBox3D" parent="." unique_id=597705242]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 3, 0)
+use_collision = true
+size = Vector3(1, 6, 60)
+material = SubResource("Mat_block")
+
+[node name="Step1" type="CSGBox3D" parent="." unique_id=1711147885]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.5, -6)
+use_collision = true
+size = Vector3(4, 1, 4)
+material = SubResource("Mat_block")
+
+[node name="Step2" type="CSGBox3D" parent="." unique_id=777292668]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 1, -6)
+use_collision = true
+size = Vector3(4, 2, 4)
+material = SubResource("Mat_block")
+
+[node name="Step3" type="CSGBox3D" parent="." unique_id=1284390453]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1.5, -6)
+use_collision = true
+size = Vector3(4, 3, 4)
+material = SubResource("Mat_block")
+
+[node name="Pillar" type="CSGBox3D" parent="." unique_id=1745475065]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2.5, -8)
+use_collision = true
+size = Vector3(2, 5, 2)
+material = SubResource("Mat_block")
+
+[node name="Player" parent="." unique_id=1822807503 instance=ExtResource("1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 26)
+spawn_facing_degrees = 180.0
+
+[node name="CameraRig" parent="." unique_id=579518304 node_paths=PackedStringArray("target") instance=ExtResource("2")]
+target = NodePath("../Player")
+
+[node name="Enemy1" parent="." unique_id=430574755 instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -10)
+
+[node name="Enemy2" parent="." unique_id=1793506496 instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.5, -14)
+
+[node name="Brute" parent="." unique_id=811862678 instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.5, -18)
+
+[node name="Archer1" parent="." unique_id=886790513 instance=ExtResource("6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 3.2, -6)
+
+[node name="Archer2" parent="." unique_id=1316499762 instance=ExtResource("6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0.5, -20)
+
+[node name="EquipmentMenu" parent="." unique_id=1035640906 instance=ExtResource("7")]
+
+[node name="HUD" parent="." unique_id=593510694 instance=ExtResource("4")]

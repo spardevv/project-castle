@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "h_plunge"
+display_name = "Mergulho esmagador"
+anim = "plunge"
+damage = 30
+knockback = 10.0
+hitstun = 0.6
+hitstop = 0.14
+poise_break = true
+startup = 0.2
+active = 1.2
+recovery = 0.5
+cancel_start = 99.0
+lunge_speed = 0.0
+dive_speed = 28.0
+turn_to_input = false
+use_sweep = false
+hitbox_size = Vector3(2.8, 2.6, 2.8)
+hitbox_offset = Vector3(0, 0.6, 0.6)
