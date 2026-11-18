@@ -22,9 +22,15 @@ const LIBRARY := {
 	&"slow": {"name": "Lentidão", "cooldown": 12.0, "desc": "Debuff: inimigos em volta ficam 50% mais lentos por 6 s."},
 	&"smite": {"name": "Julgamento", "cooldown": 9.0, "desc": "Dano: coluna de luz sobre o inimigo travado (ou o mais próximo)."},
 	&"nova": {"name": "Nova sagrada", "cooldown": 13.0, "desc": "Dano: explosão de luz em volta do sacerdote que empurra os inimigos."},
+	# --- Mago ---
+	&"blast": {"name": "Explosão arcana", "cooldown": 5.0, "desc": "Lança uma bola de fogo no inimigo travado (ou no mais próximo) que explode em área."},
+	&"frostnova": {"name": "Nova gélida", "cooldown": 11.0, "desc": "Onda de gelo em volta do mago: dano em área e lentidão nos inimigos próximos."},
+	&"storm": {"name": "Tempestade", "cooldown": 13.0, "desc": "Chama vários raios sobre os inimigos num raio de 11 m; cada um explode em área."},
+	&"meteor": {"name": "Chuva de meteoros", "cooldown": 20.0, "desc": "Marca o chão e faz três meteoros caírem sobre os inimigos: dano pesado em área, com atraso."},
 }
 
 const GOLEM_CHOICES: Array[StringName] = [&"", &"quake", &"taunt", &"punches", &"grab", &"rock"]
+const MAGE_CHOICES: Array[StringName] = [&"", &"blast", &"frostnova", &"storm", &"meteor"]
 const PRIEST_CHOICES: Array[StringName] = [&"", &"heal", &"renew", &"ward", &"bless", &"haste", &"hex", &"slow", &"smite", &"nova"]
 
 ## Golem: min/max = distância ao alvo; crowd = inimigos mínimos num raio de crowd_radius.
@@ -44,18 +50,27 @@ const PASSIVES := {
 	&"p_bless": {"name": "Bênção do campo", "cooldown": 25.0, "desc": "Abençoa o jogador no início de cada combate."},
 	&"p_ward": {"name": "Escudo de luz", "cooldown": 18.0, "desc": "Protege o jogador em combate quando a vida cai abaixo de 80%."},
 	&"p_slow": {"name": "Teia lenta", "cooldown": 14.0, "desc": "Retarda os inimigos quando há 2 ou mais perto do jogador."},
+	&"m_bolt": {"name": "Orbe arcano", "cooldown": 3.2, "desc": "Lança bolas de fogo explosivas nos inimigos a média distância, sozinho."},
+	&"m_frost": {"name": "Geada", "cooldown": 9.0, "desc": "Congela o entorno (dano + lentidão) quando 2 ou mais inimigos chegam perto do mago."},
+	&"m_meteor": {"name": "Chuva ardente", "cooldown": 22.0, "desc": "Chama meteoros quando 3 ou mais inimigos se juntam perto do jogador."},
+	&"m_storm": {"name": "Tempestade elétrica", "cooldown": 16.0, "desc": "Chama raios quando há 2 ou mais inimigos num raio de 11 m."},
 	&"p_smite": {"name": "Centelha", "cooldown": 5.0, "desc": "Solta um raio de luz fraco em inimigos a média distância."},
 }
 
 const GOLEM_PASSIVE_CHOICES: Array[StringName] = [&"", &"slam", &"combo", &"rock", &"spin"]
+const MAGE_PASSIVE_CHOICES: Array[StringName] = [&"", &"m_bolt", &"m_frost", &"m_meteor", &"m_storm"]
 const PRIEST_PASSIVE_CHOICES: Array[StringName] = [&"", &"p_aura", &"p_heal", &"p_renew", &"p_bless", &"p_ward", &"p_slow", &"p_smite"]
 
 
 static func choices_for(kind: StringName) -> Array[StringName]:
+	if kind == &"mage":
+		return MAGE_CHOICES
 	return PRIEST_CHOICES if kind == &"priest" else GOLEM_CHOICES
 
 
 static func passive_choices_for(kind: StringName) -> Array[StringName]:
+	if kind == &"mage":
+		return MAGE_PASSIVE_CHOICES
 	return PRIEST_PASSIVE_CHOICES if kind == &"priest" else GOLEM_PASSIVE_CHOICES
 
 

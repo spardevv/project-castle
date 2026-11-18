@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "s_art_1"
+display_name = "Lança: investida"
+anim = "sp_thrust1"
+damage = 13
+knockback = 3.0
+hitstun = 0.7
+hitstop = 0.06
+startup = 0.08
+active = 0.22
+recovery = 0.06
+cancel_start = 99.0
+lunge_speed = 18.0
+turn_to_input = true
+hitbox_size = Vector3(2.6, 1.8, 3.2)
+hitbox_offset = Vector3(0, 1, 1.4)

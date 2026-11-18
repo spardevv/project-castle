@@ -1,0 +1,49 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://summon/summon.tscn" id="1"]
+[ext_resource type="Script" path="res://summon/states/caster.gd" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_mage"]
+radius = 0.4
+height = 1.8
+
+[node name="Mage" instance=ExtResource("1")]
+arrival = &"arcane"
+speed = 7.0
+follow_distance = 3.2
+contact_radius = 0.42
+contact_mass = 0.9
+
+[node name="CollisionShape3D" parent="." index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_mage")
+
+[node name="Health" parent="." index="1"]
+max_health = 80
+
+[node name="CollisionShape3D" parent="Hurtbox" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_mage")
+
+[node name="Rig" parent="Visual" index="0"]
+skin = Color(0.92, 0.78, 0.65, 1)
+cloth = Color(0.25, 0.2, 0.55, 1)
+accent = Color(0.35, 0.8, 1, 1)
+height = 1.0
+bulk = 0.9
+weapon = 5
+trail_color = Color(0.5, 0.8, 1, 1)
+headgear = 4
+cape = true
+cape_color = Color(0.18, 0.14, 0.42, 1)
+tabard = true
+pauldron_scale = 0.7
+fist_scale = 1.0
+runes = false
+rune_color = Color(0.5, 0.85, 1, 1)
+
+[node name="Follow" parent="StateMachine" index="0"]
+script = ExtResource("2")
+
+[node name="Chase" parent="StateMachine" index="1"]
+script = ExtResource("2")

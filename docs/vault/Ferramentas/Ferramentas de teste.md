@@ -20,6 +20,10 @@ Dica: passe `--log-file arquivo.log` e leia o log (stdout pode não aparecer).
 | `grab_probe` | headless | skill Agarrar (alvo perto/longe, brutamontes) |
 | `spawn_probe` / `summon_probe` / `summon_entry_probe` | headless | posicionamento, passivas, entrada/saída do summon — [[Summons]] |
 | `pose_sheet` | **janela** | folhas de pose em PNG (6 momentos × 3/4 e perfil). Filtros: `hm:` (martelo), `sh:` (escudo) — [[Poses e molas]] |
+| `slide_probe` | headless | mede o deslize dos pés apoiados (m/s) em 1,5–7 m/s; ideal ≈ 0 — [[Rig humanoide]] |
+| `walk_shot` | **janela** | tira de quadros do rig andando/correndo de perfil (PNG) |
+| `new_gear_probe` | headless | lança (alcance/stun), besta (rajada) e mago (flanco, explosão, tempestade, meteoros, nova gélida) — [[Lança]], [[Besta automática]], [[Mago]] |
+| `gear_shot` / `hud_shot` | **janela** | capturas de lança, besta e mago / da HUD com cada summon |
 | `lineup` | **janela** | todos os rigs lado a lado — [[Rig humanoide]] |
 
 Comando típico:
@@ -27,3 +31,7 @@ Comando típico:
 godot --headless --path . res://tools/charge_probe.tscn --quit-after 4500 --log-file out.log
 godot --path . res://tools/pose_sheet.tscn --resolution 1500x720 -- pasta_saida atk_hm_smash
 ```
+
+## Plugins (addons/)
+- **GUT** — testes unitários: `godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit`
+- **Debug Draw 3D** — desenha linhas/esferas/caixas de debug (`DebugDraw3D.draw_sphere(...)`), útil para pés travados e hitboxes.

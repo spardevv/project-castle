@@ -1,6 +1,7 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1"]
+[ext_resource type="Script" path="res://player/states/crossbow.gd" id="30_xbow"]
 [ext_resource type="Script" path="res://combat/health.gd" id="2"]
 [ext_resource type="Script" path="res://combat/hurtbox.gd" id="3"]
 [ext_resource type="Script" path="res://combat/hitbox.gd" id="4"]
@@ -136,6 +137,9 @@ script = ExtResource("17")
 
 [node name="Bash" type="Node" parent="StateMachine"]
 script = ExtResource("18")
+
+[node name="Crossbow" type="Node" parent="StateMachine"]
+script = ExtResource("30_xbow")
 
 [node name="Charge" type="Node" parent="StateMachine"]
 script = ExtResource("19")

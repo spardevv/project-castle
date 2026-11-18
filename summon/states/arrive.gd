@@ -114,6 +114,9 @@ func _holy(c: Summon, delta: float) -> void:
 
 ## Explosão de cura: restaura o jogador (e regenera um pouco) e o próprio sacerdote.
 func _holy_burst(c: Summon) -> void:
+	if c.arrival == &"arcane":
+		_arcane_burst(c)
+		return
 	var color := Color(0.6, 1.0, 0.7)
 	Fx.burst(c, c.global_position + Vector3(0, 0.8, 0), HOLY_RADIUS, color, 0.8)
 	Fx.burst(c, c.global_position + Vector3(0, 0.8, 0), HOLY_RADIUS * 0.5, Color(1.0, 0.95, 0.7), 0.5)
@@ -127,6 +130,23 @@ func _holy_burst(c: Summon) -> void:
 		StatusEffects.apply(p, &"regen", 5.0)
 	GameFeel.shake(0.12)
 	Sfx.play(&"heal", c.global_position + Vector3(0, 1.0, 0), 3.0, 0.9)
+
+
+## Chegada do mago: clarão arcano que empurra e fere quem está em volta.
+func _arcane_burst(c: Summon) -> void:
+	var color := Color(0.5, 0.75, 1.0)
+	Fx.burst(c, c.global_position + Vector3(0, 0.8, 0), 5.0, color, 0.7)
+	c.rig.flash(Color(0.7, 0.85, 1.0), 0.5)
+	var ex := Explosion.new()
+	ex.radius = 4.5
+	ex.damage = 16
+	ex.knockback = 8.0
+	ex.launch = 4.0
+	ex.color = color
+	ex.instigator = c.owner_player
+	ex.position = c.global_position + Vector3(0, 0.3, 0)
+	c.get_parent().add_child(ex)
+	Sfx.play(&"zap", c.global_position + Vector3(0, 1.0, 0), 2.0, 0.8)
 
 
 func _make_trail() -> CPUParticles3D:

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "s_art_2"
+display_name = "Lança: estocada dupla"
+anim = "sp_thrust2"
+damage = 15
+knockback = 3.0
+hitstun = 0.7
+hitstop = 0.07
+startup = 0.06
+active = 0.22
+recovery = 0.06
+cancel_start = 99.0
+lunge_speed = 2.0
+turn_to_input = false
+hitbox_size = Vector3(1.8, 1.8, 4.0)
+hitbox_offset = Vector3(0, 1, 2.0)

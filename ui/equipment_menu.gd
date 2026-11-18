@@ -182,12 +182,12 @@ func _refresh() -> void:
 
 func _update_desc(row: Dictionary) -> void:
 	if row["kind"] == "primary":
-		_desc.text = "Espada longa: rápida, combos fluidos.\nMartelo: pesado e lento, muito mais dano e golpes que quebram a defesa do inimigo (derruba)."
+		_desc.text = "Espada longa: rápida, combos fluidos.\nMartelo: pesado e lento, muito mais dano e golpes que quebram a defesa do inimigo (derruba).\nLança: alcance bem maior e stun médio; estocadas que mantêm o inimigo a distância."
 	elif row["kind"] == "secondary":
-		_desc.text = "Orbe de fogo: %s conjura uma bola de fogo que explode em área.\nEscudo: reduz 75%% de todo o dano e aumenta muito o stance (não cambaleia fácil); LT bloqueia/parry, %s é uma investida." % [
-			InputGlyphs.label(&"secondary"), InputGlyphs.label(&"secondary")]
+		_desc.text = "Orbe de fogo: %s conjura uma bola de fogo que explode em área.\nEscudo: reduz 75%% de todo o dano e aumenta muito o stance (não cambaleia fácil); LT bloqueia/parry, %s é uma investida.\nBesta automática: segure %s para uma rajada de virotes rápidos e de pouco dano; anda devagar enquanto atira." % [
+			InputGlyphs.label(&"secondary"), InputGlyphs.label(&"secondary"), InputGlyphs.label(&"secondary")]
 	elif row["kind"] == "summon":
-		_desc.text = "Golem de Pedra: combate corpo a corpo, provoca e agarra.\nSacerdote: fica atrás de você curando, dando buffs, aplicando debuffs e com poucas skills de dano. Troque e invoque de novo com %s." % InputGlyphs.label(&"summon")
+		_desc.text = "Golem de Pedra: combate corpo a corpo, provoca e agarra.\nSacerdote: fica atrás de você curando, dando buffs, aplicando debuffs e com poucas skills de dano. \nMago: fica no seu flanco lançando magias de dano em área (bola de fogo, gelo, raios, meteoros). Troque e invoque de novo com %s." % InputGlyphs.label(&"summon")
 	elif row["kind"] == "passive":
 		_desc.text = SummonSkills.passive_desc(GameState.summon_passives[row["index"]])
 	else:

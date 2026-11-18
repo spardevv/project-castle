@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://combat/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "s1"
+display_name = "Estocada"
+anim = "sp_thrust1"
+damage = 12
+knockback = 4.5
+hitstun = 0.55
+hitstop = 0.07
+startup = 0.16
+active = 0.14
+recovery = 0.34
+cancel_start = 0.3
+lunge_speed = 6.0
+hitbox_size = Vector3(1.2, 1.4, 2.6)
+hitbox_offset = Vector3(0, 1, 1.8)

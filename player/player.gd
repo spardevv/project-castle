@@ -6,6 +6,7 @@ const FIREBALL := preload("res://combat/projectile.tscn")
 const SUMMON_SCENES := {
 	&"golem": preload("res://summon/summon.tscn"),
 	&"priest": preload("res://summon/priest.tscn"),
+	&"mage": preload("res://summon/mage.tscn"),
 }
 ## Cooldown (s) até poder invocar de novo depois de dispensar/trocar, ou depois que o summon morre.
 const SUMMON_COOLDOWN := 8.0
@@ -306,21 +307,39 @@ func start_attack() -> void:
 
 ## B: ação do equipamento secundário do loadout — orbe conjura a bola de fogo, escudo faz a investida.
 func use_secondary() -> void:
-	if GameState.secondary == &"shield":
-		machine.change_to(&"Bash")
-	else:
-		machine.change_to(&"Cast")
+	match GameState.secondary:
+		&"shield":
+			machine.change_to(&"Bash")
+		&"crossbow":
+			machine.change_to(&"Crossbow")
+		_:
+			machine.change_to(&"Cast")
 
 
 ## Aplica o loadout do GameState: modelo na mão esquerda e perfil de guarda.
 func apply_loadout() -> void:
 	var shield := GameState.secondary == &"shield"
-	rig.set_offhand(HumanoidRig.Offhand.SHIELD if shield else HumanoidRig.Offhand.ORB)
+	match GameState.secondary:
+		&"shield":
+			rig.set_offhand(HumanoidRig.Offhand.SHIELD)
+		&"crossbow":
+			rig.set_offhand(HumanoidRig.Offhand.CROSSBOW)
+		_:
+			rig.set_offhand(HumanoidRig.Offhand.ORB)
 	guard_profile = GuardProfile.shield() if shield else GuardProfile.bare()
-	var hammer := GameState.primary == &"hammer"
-	rig.set_weapon(HumanoidRig.Weapon.HAMMER if hammer else HumanoidRig.Weapon.SWORD)
-	attack_hitbox.sweep_radius = 0.32 if hammer else 0.16 # cabeça do martelo é grossa
-	moveset = Hammer.new() if hammer else LongSword.new()
+	match GameState.primary:
+		&"hammer":
+			rig.set_weapon(HumanoidRig.Weapon.HAMMER)
+			attack_hitbox.sweep_radius = 0.32 # cabeça do martelo é grossa
+			moveset = Hammer.new()
+		&"spear":
+			rig.set_weapon(HumanoidRig.Weapon.SPEAR)
+			attack_hitbox.sweep_radius = 0.2
+			moveset = Spear.new()
+		_:
+			rig.set_weapon(HumanoidRig.Weapon.SWORD)
+			attack_hitbox.sweep_radius = 0.16
+			moveset = LongSword.new()
 	combo_memory_time = 0.0
 	poise = minf(poise, poise_max())
 
@@ -343,6 +362,27 @@ func fire_projectile() -> void:
 	get_parent().add_child(proj)
 	proj.global_position = origin
 	GameFeel.rumble(0.2, 0.0, 0.08)
+
+
+## Dispara um virote da besta (rajada): na direção do alvo travado ou à frente, com leve dispersão.
+func fire_bolt() -> void:
+	var origin := global_position + Vector3(0, 1.3, 0) + forward() * 0.6
+	if rig.offhand_tip != null:
+		origin = rig.offhand_tip.global_position
+	var dir := forward()
+	if has_lock():
+		dir = (lock_target.global_position + Vector3(0, 1.0, 0) - origin).normalized()
+	else:
+		dir.y = 0.0
+		dir = dir.normalized()
+	dir = dir.rotated(Vector3.UP, deg_to_rad(randf_range(-1.8, 1.8))).rotated(forward().cross(Vector3.UP).normalized(), deg_to_rad(randf_range(-0.8, 0.8)))
+	Sfx.play(&"bow", origin, -8.0, randf_range(1.3, 1.6))
+	var b := Bolt.new()
+	b.direction = dir
+	b.instigator = self
+	get_parent().add_child(b)
+	b.global_position = origin
+	GameFeel.rumble(0.08, 0.0, 0.04)
 
 
 ## Trocou de summon no menu: dispensa o atual (o novo é invocado de novo com X).

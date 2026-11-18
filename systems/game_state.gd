@@ -5,12 +5,12 @@ signal loadout_changed
 ## Emitido quando o jogador troca de summon (o player dispensa o atual).
 signal summon_kind_changed
 
-const PRIMARIES: Array[StringName] = [&"sword", &"hammer"]
-const PRIMARY_NAMES := {&"sword": "Espada longa", &"hammer": "Martelo"}
-const SECONDARIES: Array[StringName] = [&"orb", &"shield"]
-const SECONDARY_NAMES := {&"orb": "Orbe de fogo", &"shield": "Escudo"}
-const SUMMON_KINDS: Array[StringName] = [&"golem", &"priest"]
-const SUMMON_NAMES := {&"golem": "Golem de Pedra", &"priest": "Sacerdote"}
+const PRIMARIES: Array[StringName] = [&"sword", &"hammer", &"spear"]
+const PRIMARY_NAMES := {&"sword": "Espada longa", &"hammer": "Martelo", &"spear": "Lança"}
+const SECONDARIES: Array[StringName] = [&"orb", &"shield", &"crossbow"]
+const SECONDARY_NAMES := {&"orb": "Orbe de fogo", &"shield": "Escudo", &"crossbow": "Besta automática"}
+const SUMMON_KINDS: Array[StringName] = [&"golem", &"priest", &"mage"]
+const SUMMON_NAMES := {&"golem": "Golem de Pedra", &"priest": "Sacerdote", &"mage": "Mago"}
 
 var abilities: Dictionary = {} # StringName -> bool
 var world_flags: Dictionary = {} # StringName -> Variant
@@ -26,10 +26,12 @@ var summon_kind: StringName = &"golem"
 var _slots := {
 	&"golem": [&"quake", &"taunt", &"grab", &"rock"],
 	&"priest": [&"heal", &"bless", &"hex", &"smite"],
+	&"mage": [&"blast", &"frostnova", &"storm", &"meteor"],
 }
 var _passives := {
 	&"golem": [&"slam", &"combo"],
 	&"priest": [&"p_aura", &"p_heal"],
+	&"mage": [&"m_bolt", &"m_frost"],
 }
 
 ## Slots do summon ativo (a mesma lista é devolvida, então escrever nela altera o loadout).
