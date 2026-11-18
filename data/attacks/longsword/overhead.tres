@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "overhead"
 display_name = "Overhead"
+two_handed = true
 damage = 28
 knockback = 10.0
 hitstun = 0.6

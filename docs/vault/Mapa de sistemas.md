@@ -13,6 +13,7 @@ Voltar ao [[00 - Início]].
 - [[Jogador]] — dados e utilitários
   - [[Estados do jogador]] → [[Movimento e esquiva]]
   - [[Loadout e equipamento]] → [[Menu de equipamento]]
+  - [[Menu de pausa]] (reiniciar, opções de vídeo/áudio/controles)
   - [[Lock-on e câmera]]
 
 ## Combate

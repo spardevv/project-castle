@@ -6,6 +6,8 @@ extends Resource
 @export var display_name := ""
 ## Chave da animação em characters/poses.gd. Vazio = usa o id.
 @export var anim := ""
+## Golpe feito com as duas mãos: a esquerda segura o cabo (IK) e o orbe/escudo são guardados.
+@export var two_handed := false
 
 @export_group("Dano")
 @export var damage := 10
@@ -51,6 +53,21 @@ extends Resource
 
 func anim_id() -> String:
 	return anim if anim != "" else id
+
+
+## Animações usadas por golpes de duas mãos em data/attacks/ (para ferramentas que tocam poses
+## pela chave, sem um AttackData em mãos).
+static func two_handed_anims() -> Dictionary:
+	var out := {}
+	for weapon_dir in DirAccess.get_directories_at("res://data/attacks"):
+		var dir := "res://data/attacks/%s" % weapon_dir
+		for f in DirAccess.get_files_at(dir):
+			var file := f.trim_suffix(".remap")
+			if file.ends_with(".tres"):
+				var d := load("%s/%s" % [dir, file]) as AttackData
+				if d != null and d.two_handed:
+					out[d.anim_id()] = true
+	return out
 
 
 func total_time() -> float:

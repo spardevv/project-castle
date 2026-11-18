@@ -9,6 +9,8 @@ var display_name := ""
 var art_name := "Arte"
 var art_sequence: Array[AttackData] = []
 var art_color := Color(1.0, 0.55, 0.15)
+## Estâncias do ataque carregado (tempos, multiplicadores e mitigação) desta arma.
+var charge := ChargeProfile.new()
 var moves: Dictionary = {} # id -> AttackData
 var start: Dictionary = {} # chave -> id (a partir do neutro, no chão)
 var start_air: Dictionary = {} # idem, no ar

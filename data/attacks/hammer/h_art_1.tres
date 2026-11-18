@@ -7,6 +7,7 @@ script = ExtResource("1")
 id = "h_art_1"
 display_name = "Fúria: giro devastador"
 anim = "hm_spin"
+two_handed = true
 damage = 20
 knockback = 10.0
 hitstun = 0.7

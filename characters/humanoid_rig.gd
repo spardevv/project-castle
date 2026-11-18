@@ -19,6 +19,30 @@ const HIP_Y := 0.95
 const HAMMER_GRIP := 0.5
 ## Onde a mão esquerda segura a arma nos golpes de duas mãos (z no soquete da arma).
 const GRIP2 := {0: -0.14, 4: 0.12, 6: 0.62} # Weapon.SWORD, Weapon.HAMMER, Weapon.SPEAR
+## Lança fora dos golpes: uma mão só, segurando perto do meio da haste (a haste desliza na mão para
+## trás). Nos golpes ela volta para a pegada de estocada (mão direita atrás, esquerda à frente).
+const SPEAR_REST_SHIFT := -0.75
+## Juntas derivadas (não aparecem nas poses): peito, pescoço e clavículas dividem a rotação do
+## tronco/cabeça/ombro e chegam com atraso próprio; a ponta do pé dobra ao desprender do chão.
+const CHEST_Y := 0.22
+const NECK_Y := 0.34
+const CLAV_X := 0.09
+const TOE_Z := 0.095
+## Fração da rotação do tronco que fica no peito e da cabeça que fica no pescoço.
+const CHEST_SHARE := 0.5
+## Respiração: amplitude (graus no peito) parado e o extra depois de esforço (golpes, esquivas).
+const BREATH_IDLE := 1.4
+const BREATH_EXERTION := 3.5
+## Animações em que as mãos ficam abertas (conjurar, puxar a corda do arco).
+const OPEN_HAND_ANIMS := {"cast": true, "priest_cast": true, "e_draw": true, "taunt": true}
+## Mira da besta de mão (camada sobre a locomoção): braço esquerdo estendido à frente na altura do
+## ombro, tronco levemente virado para o braço. As pernas continuam andando/correndo.
+const AIM_POSE := {
+	"sh_l": Vector3(-86, -6, 6), "el_l": Vector3(-3, 0, 0),
+	"spine": Vector3(4, 10, 0), "head": Vector3(0, -6, 0),
+}
+const AIM_BLEND_TIME := 0.12
+const NECK_SHARE := 0.35
 const THIGH_LEN := 0.45
 const SHIN_LEN := 0.45
 const FOOT_H := 0.06
@@ -101,6 +125,8 @@ var _speed := 0.0
 var _on_floor := true
 var _vy := 0.0
 var _atk_anim := ""
+var _atk_two_hand := false
+var _spear_body: Node3D # haste da lança (desliza entre a pegada de descanso e a de estocada)
 var _atk := Vector4.ZERO # startup, active, recovery, t
 var _charge_level := -1 # estância de carga (-1 = não carregando): tremor de esforço
 var _shield_front := 0.0 # 0 = escudo de lado no antebraço, 1 = de frente (guarda e investida)
@@ -145,6 +171,19 @@ var _phase_rate := 0.0 # rad/s do ciclo de passos
 var _stride_half := 0.0 # meio passo (m, já com a escala do rig)
 var _pelvis_drop := 0.0
 var _feet: Dictionary = {} # "l"/"r" -> pivô do pé
+var _toes: Dictionary = {} # "l"/"r" -> pivô da ponta do pé
+var _chest_lag := Vector3.ZERO # atraso do peito em relação à cintura (graus)
+var _chest_lag_vel := Vector3.ZERO
+var _clav := Vector2.ZERO # elevação das clavículas (graus): x = esquerda, y = direita
+var _hands: Dictionary = {} # "l"/"r" -> nó da mão (pulso)
+var _fingers: Dictionary = {} # "l"/"r" -> pivô dos dedos
+var _finger_open := Vector2.ZERO # 0 = fechado, 1 = aberto (x = esquerda, y = direita)
+var _wrist_l := Vector3.ZERO # arrasto do pulso esquerdo (graus)
+var _wrist_l_vel := Vector3.ZERO
+var _exertion := 0.0 # 0..1: sobe com golpes/esquivas, decai em ~3 s (respiração ofegante)
+var _breath_phase := 0.0
+var _aim := 0.0 # 0..1: peso da camada de mira da besta
+var _aim_on := false
 
 
 func _ready() -> void:
@@ -167,7 +206,8 @@ func set_motion(speed: float, on_floor: bool, vel_y: float) -> void:
 	_vy = vel_y
 
 
-func set_attack(anim: String, startup: float, active: float, recovery: float, t: float) -> void:
+## two_handed: a mão esquerda segura o cabo da arma (AttackData.two_handed).
+func set_attack(anim: String, startup: float, active: float, recovery: float, t: float, two_handed := false) -> void:
 	# Golpe novo (outra animação, vindo de outro modo, ou o tempo recomeçou): guarda a pose atual
 	# do corpo. A preparação parte dela, então encadear golpes é um gesto contínuo.
 	if anim != _atk_anim or _mode != Mode.ATTACK or t < _atk.w - 0.0001:
@@ -178,7 +218,13 @@ func set_attack(anim: String, startup: float, active: float, recovery: float, t:
 		_atk_from = _cur.duplicate()
 	_mode = Mode.ATTACK
 	_atk_anim = anim
+	_atk_two_hand = two_handed
 	_atk = Vector4(startup, active, recovery, t)
+
+
+## Mira da besta: braço esquerdo estendido sobre a locomoção (andar/correr continuam).
+func set_aim(on: bool) -> void:
+	_aim_on = on
 
 
 func set_dodge(progress: float) -> void:
@@ -228,11 +274,13 @@ func set_charge(level: int) -> void:
 
 ## Aplica a pose-alvo atual imediatamente, sem suavização (usado por ferramentas de preview).
 func snap() -> void:
+	_aim = 1.0 if (_aim_on and _mode == Mode.LOCOMOTION) else 0.0
 	_cur = _compute_target(0.0).duplicate()
 	for j in Poses.JOINTS:
 		_vel[j] = Vector3.ZERO
 	_apply()
 	_two_hand_apply(0.0, true)
+	_update_skin()
 
 
 ## A cabeça vira para este ponto (com atraso e limites). active=false volta a olhar para frente.
@@ -289,7 +337,16 @@ func _compute_target(delta: float) -> Dictionary:
 		Mode.KNOCKDOWN:
 			return Poses.knockdown(_progress, _down_dur)
 	# A fase do passo avança com a distância andada (em _track_motion), não com o tempo.
-	return Poses.locomotion(_phase, _speed, _on_floor, _vy, _time, _carry_wrist())
+	var pose := Poses.locomotion(_phase, _speed, _on_floor, _vy, _time, _carry_wrist(), weapon == Weapon.SPEAR)
+	if _aim > 0.0:
+		pose = pose.duplicate() # algumas poses vêm de cache
+		var k := smoothstep(0.0, 1.0, _aim)
+		for j in AIM_POSE:
+			var base: Vector3 = pose.get(j, Vector3.ZERO)
+			var aim: Vector3 = AIM_POSE[j]
+			# Tronco e cabeça: a mira soma ao balanço do passo; o braço substitui.
+			pose[j] = base.lerp(aim, k) if j in ["sh_l", "el_l"] else base + aim * k
+	return pose
 
 
 func _process(delta: float) -> void:
@@ -303,6 +360,7 @@ func _process(delta: float) -> void:
 				_vel[j] = Vector3.ZERO
 		_apply()
 		_two_hand_apply(0.0)
+		_update_skin()
 		if _freeze_shake and _freeze_t > 0.0:
 			_body_root.position = Vector3(randf_range(-1.0, 1.0), 0.0, randf_range(-1.0, 1.0)) * 0.03
 		else:
@@ -314,6 +372,7 @@ func _process(delta: float) -> void:
 		return
 
 	_time += delta
+	_aim = move_toward(_aim, 1.0 if (_aim_on and _mode == Mode.LOCOMOTION) else 0.0, delta / AIM_BLEND_TIME)
 	_update_orb()
 	_track_motion(delta)
 	var target := _compute_target(delta)
@@ -329,6 +388,7 @@ func _process(delta: float) -> void:
 	_two_hand_apply(delta)
 	_update_cloth(delta)
 	_leg_ik(delta)
+	_update_skin()
 
 
 ## Juntas como molas amortecidas (Euler semi-implícito, subpassos para estabilidade).
@@ -355,6 +415,14 @@ func _integrate(target: Dictionary, delta: float) -> void:
 			x += v * dt
 		_cur[j] = x
 		_vel[j] = v
+
+
+## Elevação da clavícula (graus) para a pose atual do ombro do lado `n`.
+func _clav_raise(n: String) -> float:
+	var sh: Vector3 = _cur["sh_" + n]
+	var lift := clampf((-sh.x - 60.0) / 100.0, 0.0, 1.0) # braço erguido à frente/acima
+	var abduct := clampf((absf(sh.z) - 35.0) / 70.0, 0.0, 1.0) # braço aberto para o lado
+	return 16.0 * maxf(lift, abduct)
 
 
 ## Mede velocidade/aceleração/giro reais do corpo e avança a fase do passo pela distância.
@@ -418,12 +486,47 @@ func _update_secondary(delta: float) -> void:
 	_land_vel += (-_land * gw * gw - _land_vel * 2.0 * 0.45 * gw) * delta
 	_land += _land_vel * delta
 
+	# Peito atrasa em relação à cintura: quanto mais rápido o tronco gira, mais o peito fica para trás
+	# e depois "alcança" (sobreposição de movimento).
+	var spine_v: Vector3 = _vel["spine"]
+	var lag_target := (-spine_v * CHEST_SHARE * 0.035).clamp(Vector3.ONE * -9.0, Vector3.ONE * 9.0)
+	var cw := 16.0
+	_chest_lag_vel += ((lag_target - _chest_lag) * cw * cw - _chest_lag_vel * 2.0 * 0.5 * cw) * delta
+	_chest_lag += _chest_lag_vel * delta
+	# Clavículas: braço acima da linha do ombro (X < -60) ou aberto para o lado levanta o ombro.
+	var clav_target := Vector2(_clav_raise("l"), _clav_raise("r"))
+	_clav = _clav.lerp(clav_target, 1.0 - exp(-14.0 * delta))
+
+	# Esforço: golpes e esquivas deixam o personagem ofegante por alguns segundos.
+	if _mode in [Mode.ATTACK, Mode.DODGE]:
+		_exertion = minf(_exertion + delta * 0.9, 1.0)
+	else:
+		_exertion = maxf(_exertion - delta * 0.3, 0.0)
+	_breath_phase += delta * lerpf(0.5, 1.6, _exertion) # ~15 respirações/min parado, ~48 ofegante
+	# Mãos: abrem ao conjurar/puxar o arco e na guarda sem escudo; fecham no resto.
+	var open_l := 1.0 if (_mode == Mode.ATTACK and OPEN_HAND_ANIMS.has(_atk_anim)) or (_mode == Mode.GUARD and not _guard_shield) else 0.0
+	var open_r := 1.0 if weapon in [Weapon.NONE] and _mode == Mode.ATTACK and OPEN_HAND_ANIMS.has(_atk_anim) else 0.0
+	if _mode in [Mode.DEAD, Mode.KNOCKDOWN]:
+		open_l = 0.6 # mão solta, meio aberta
+		open_r = 0.6 if weapon == Weapon.NONE else 0.0
+	_finger_open = _finger_open.lerp(Vector2(open_l, open_r), 1.0 - exp(-12.0 * delta))
+	# Pulso esquerdo (mão livre): arrasta atrás do movimento do antebraço e assenta com mola.
+	var el_v: Vector3 = _vel["el_l"]
+	var sh_v: Vector3 = _vel["sh_l"]
+	var wl_target := Vector3.ZERO
+	if _two_hand < 0.05 and offhand != Offhand.CROSSBOW:
+		wl_target = (-(el_v + sh_v) * 0.03).clamp(Vector3.ONE * -25.0, Vector3.ONE * 25.0)
+		wl_target.y = 0.0
+	var ww := 18.0
+	_wrist_l_vel += ((wl_target - _wrist_l) * ww * ww - _wrist_l_vel * 2.0 * 0.45 * ww) * delta
+	_wrist_l += _wrist_l_vel * delta
+
 	# Olhar: deslocamento da cabeça em direção ao alvo, limitado e suavizado.
 	var want := Vector3.ZERO
 	var weight: float = LOOK_WEIGHT.get(_mode, 0.0)
 	if _look_on and weight > 0.0:
 		var head: Node3D = _joints["head"]
-		var parent := head.get_parent() as Node3D
+		var parent: Node3D = _joints["chest"] # olhar medido do peito (pescoço + cabeça somam a rotação)
 		var dir := parent.global_transform.basis.orthonormalized().inverse() * (_look_pos - head.global_position)
 		var horiz := Vector2(dir.x, dir.z).length()
 		if horiz > 0.05:
@@ -438,11 +541,35 @@ func _apply() -> void:
 	_body_root.rotation_degrees = Vector3((_cur["pitch"] as Vector3).x + _lean.x, (_cur["yaw"] as Vector3).x, _lean.y)
 	for j in ROT_JOINTS:
 		(_joints[j] as Node3D).rotation_degrees = _cur[j]
-	(_joints["head"] as Node3D).rotation_degrees += _head_off
+	# Tronco dividido entre cintura e peito (o peito ainda atrasa um pouco: _chest_lag).
+	var torso: Vector3 = _cur["spine"]
+	(_joints["spine"] as Node3D).rotation_degrees = torso * (1.0 - CHEST_SHARE)
+	(_joints["chest"] as Node3D).rotation_degrees = torso * CHEST_SHARE + _chest_lag
+	# Cabeça dividida entre pescoço e cabeça (inclui o olhar).
+	var look: Vector3 = (_cur["head"] as Vector3) + _head_off
+	# Estabilização: a cabeça compensa parte da inclinação do corpo ao correr/curvar (olhar nivelado).
+	if _mode == Mode.LOCOMOTION:
+		look -= Vector3(_lean.x, 0.0, _lean.y) * 0.6
+	(_joints["neck"] as Node3D).rotation_degrees = look * NECK_SHARE
+	(_joints["head"] as Node3D).rotation_degrees = look * (1.0 - NECK_SHARE)
+	# Respiração: peito sobe e desce (mais forte e rápido depois de esforço); ombros acompanham.
+	var breath := sin(_breath_phase * TAU * 0.5) * lerpf(BREATH_IDLE, BREATH_EXERTION, _exertion)
+	if _mode in [Mode.LOCOMOTION, Mode.GUARD]:
+		(_joints["chest"] as Node3D).rotation_degrees.x -= breath
+		(_joints["neck"] as Node3D).rotation_degrees.x += breath * 0.7
+	# Dedos (0° = punho fechado) e pulso esquerdo.
+	if _fingers.has("l"):
+		(_fingers["l"] as Node3D).rotation_degrees = Vector3(-75.0 * _finger_open.x, 0.0, 0.0)
+		(_fingers["r"] as Node3D).rotation_degrees = Vector3(-75.0 * _finger_open.y, 0.0, 0.0)
+		(_hands["l"] as Node3D).rotation_degrees = _wrist_l
+	# Clavículas: sobem (gira em Z) com o braço erguido; um pouco também ao inspirar.
+	var inhale := maxf(sin(_breath_phase * TAU * 0.5), 0.0) * lerpf(0.6, 2.5, _exertion)
+	(_joints["clav_l"] as Node3D).rotation_degrees = Vector3(0, -_clav.x * 0.35, _clav.x + inhale)
+	(_joints["clav_r"] as Node3D).rotation_degrees = Vector3(0, _clav.y * 0.35, -_clav.y - inhale)
 	if _charge_level >= 0 and _mode == Mode.ATTACK:
 		var amp := 0.4 + 0.9 * _charge_level
 		var tremor := sin(_time * 63.0) * amp
-		(_joints["spine"] as Node3D).rotation_degrees.x += tremor
+		(_joints["chest"] as Node3D).rotation_degrees.x += tremor
 		(_joints["sh_r"] as Node3D).rotation_degrees.x += sin(_time * 71.0) * amp * 1.4
 		_hips.position.y -= absf(tremor) * 0.006
 	if _mode == Mode.LOCOMOTION:
@@ -455,7 +582,7 @@ func _carry_wrist() -> float:
 	match weapon:
 		Weapon.HAMMER:
 			return -112.0
-		Weapon.SWORD, Weapon.CLUB, Weapon.SPEAR:
+		Weapon.SWORD, Weapon.CLUB:
 			return -92.0
 	return 999.0
 
@@ -463,11 +590,11 @@ func _carry_wrist() -> float:
 ## Golpes de duas mãos: a mão esquerda segue o cabo da arma (IK de dois ossos) e o que ela
 ## segurava (orbe, escudo) é guardado enquanto isso.
 func _two_hand_apply(delta: float, instant := false) -> void:
-	var want := _mode == Mode.ATTACK and GRIP2.has(int(weapon)) and (Poses.TWO_HANDED.has(_atk_anim) or weapon == Weapon.SPEAR)
-	if weapon == Weapon.SPEAR and _mode == Mode.GUARD:
-		want = true # lança: sempre com as duas mãos
+	var want := _mode == Mode.ATTACK and GRIP2.has(int(weapon)) and _atk_two_hand
 	var goal := 1.0 if want else 0.0
 	_two_hand = goal if instant else move_toward(_two_hand, goal, delta / 0.14)
+	if _spear_body != null and is_instance_valid(_spear_body):
+		_spear_body.position.z = lerpf(SPEAR_REST_SHIFT, 0.0, smoothstep(0.0, 1.0, _two_hand))
 	# Escudo: de lado no antebraço (andar, atacar, parado); de frente só na guarda e na investida.
 	var forearm: Node3D = _joints["el_l"]
 	var shield := forearm.get_node_or_null("ShieldSocket") as Node3D
@@ -623,9 +750,11 @@ func _orient_feet(walking: bool) -> void:
 	for i in 2:
 		var n: String = "l" if i == 0 else "r"
 		var ft: Node3D = _feet[n]
+		var toe: Node3D = _toes[n]
 		var w: float = smoothstep(0.0, 1.0, _foot_w[i])
 		if w <= 0.0:
 			ft.rotation = Vector3.ZERO
+			toe.rotation = Vector3.ZERO
 			continue
 		var start := PI * 0.5 if i == 0 else PI * 1.5
 		var u := fposmod(_phase - start, TAU) / PI # 0..1 durante o apoio, >1 no balanço
@@ -636,6 +765,8 @@ func _orient_feet(walking: bool) -> void:
 			else:
 				pitch = -deg_to_rad(14.0) # calcanhar primeiro, antes do toque
 		var want := flat * Basis(Vector3.RIGHT, pitch)
+		# Calcanhar subindo (pitch > 0): a ponta dobra para ficar apoiada no chão.
+		toe.rotation = Vector3(-maxf(pitch, 0.0) * w, 0.0, 0.0)
 		var kb := (_joints["kn_" + n] as Node3D).global_transform.basis.orthonormalized()
 		var local_q := (kb.inverse() * want).get_rotation_quaternion()
 		ft.basis = Basis(Quaternion.IDENTITY.slerp(local_q, w))
@@ -689,35 +820,34 @@ func _build() -> void:
 
 	# Quadril, cinto e tabardo
 	_hips = _pivot(_body_root, "hips", Vector3(0, HIP_Y, 0))
-	_box(_hips, Vector3(0.36 * b, 0.18, 0.24 * b), Vector3(0, 0.0, 0), m_cloth)
-	_box(_hips, Vector3(0.4 * b, 0.07, 0.27 * b), Vector3(0, 0.08, 0), m_leather) # cinto
-	_box(_hips, Vector3(0.08, 0.06, 0.03), Vector3(0, 0.08, 0.14 * b), m_acc) # fivela
+	_soft_box(_hips, Vector3(0.41 * b, 0.07, 0.28 * b), Vector3(0, 0.08, 0), m_leather, 0.3) # cinto
+	_soft_box(_hips, Vector3(0.08, 0.06, 0.03), Vector3(0, 0.08, 0.145 * b), m_acc, 0.2) # fivela
 	if tabard:
 		_tab_f = _build_tabard(Vector3(0, 0.04, 0.13 * b), m_cloth)
 		_tab_b = _build_tabard(Vector3(0, 0.04, -0.13 * b), m_cloth)
 
-	# Tronco: abdômen, peito, peitoral, ombros e pescoço
+	# Tronco em duas juntas: "spine" (abdômen) e "chest" (peito), que divide a rotação do tronco e
+	# chega com atraso (o peito "segue" a cintura). Pescoço é uma junta própria entre peito e cabeça.
 	var spine := _pivot(_hips, "spine", Vector3(0, 0.08, 0))
-	_box(spine, Vector3(0.38 * b, 0.24, 0.24 * b), Vector3(0, 0.12, 0), m_cloth)
-	_box(spine, Vector3(0.48 * b, 0.32, 0.28 * b), Vector3(0, 0.36, 0), m_cloth)
-	_box(spine, Vector3(0.42 * b, 0.26, 0.05), Vector3(0, 0.37, 0.14 * b), m_acc) # peitoral
-	_box(spine, Vector3(0.56 * b, 0.1, 0.26 * b), Vector3(0, 0.52, 0), m_acc) # ombros
-	_capsule(spine, 0.06, 0.14, Vector3(0, 0.6, 0), m_skin) # pescoço
+	var chest := _pivot(spine, "chest", Vector3(0, CHEST_Y, 0))
+	_soft_box(chest, Vector3(0.42 * b, 0.27, 0.07), Vector3(0, 0.15, 0.125 * b), m_acc, 0.35) # peitoral
+	_soft_box(chest, Vector3(0.54 * b, 0.1, 0.27 * b), Vector3(0, 0.3, 0), m_acc, 0.4) # ombros
+	var neck := _pivot(chest, "neck", Vector3(0, NECK_Y, 0))
 	if runes:
 		var m_rune := _rune_material()
-		_box(spine, Vector3(0.05, 0.22, 0.02), Vector3(0, 0.36, 0.16 * b), m_rune)
-		_box(spine, Vector3(0.18, 0.04, 0.02), Vector3(0, 0.4, 0.16 * b), m_rune)
-		_box(spine, Vector3(0.12, 0.04, 0.02), Vector3(0, 0.3, 0.16 * b), m_rune)
+		_box(chest, Vector3(0.05, 0.22, 0.02), Vector3(0, 0.14, 0.165 * b), m_rune)
+		_box(chest, Vector3(0.18, 0.04, 0.02), Vector3(0, 0.18, 0.165 * b), m_rune)
+		_box(chest, Vector3(0.12, 0.04, 0.02), Vector3(0, 0.08, 0.165 * b), m_rune)
 	if cape:
-		_build_cape(spine)
+		_build_cape(chest)
 	if weapon == Weapon.BOW:
-		var quiver := _box(spine, Vector3(0.12, 0.5, 0.12), Vector3(0.12 * b, 0.36, -0.2 * b), m_leather)
+		var quiver := _soft_box(chest, Vector3(0.12, 0.5, 0.12), Vector3(0.12 * b, 0.14, -0.2 * b), m_leather, 0.4)
 		quiver.rotation_degrees = Vector3(0, 0, -18)
 		for k in 3:
 			_box(quiver, Vector3(0.02, 0.18, 0.02), Vector3(-0.03 + k * 0.03, 0.32, 0), m_cloth)
 
 	# Cabeça e o que vai nela
-	var head := _pivot(spine, "head", Vector3(0, 0.62, 0))
+	var head := _pivot(neck, "head", Vector3(0, 0.62 - CHEST_Y - NECK_Y, 0))
 	_sphere(head, 0.12, Vector3(0, 0.14, 0), m_skin, Vector3(0.95, 1.05, 1.0))
 	match headgear:
 		Headgear.HELMET:
@@ -740,9 +870,9 @@ func _build() -> void:
 			_box(head, Vector3(0.1, 0.07, 0.04), Vector3(0, 0.1, 0.11), m_cloth) # barba curta
 		Headgear.GOLEM:
 			# Cabeça de pedra: bloco com sobrancelha pesada, mandíbula e olhos brilhantes.
-			_box(head, Vector3(0.27, 0.22, 0.25), Vector3(0, 0.13, 0), m_skin)
-			_box(head, Vector3(0.3, 0.07, 0.1), Vector3(0, 0.22, 0.12), m_acc) # sobrancelha
-			_box(head, Vector3(0.2, 0.07, 0.1), Vector3(0, 0.02, 0.1), m_acc) # mandíbula
+			_soft_box(head, Vector3(0.27, 0.22, 0.25), Vector3(0, 0.13, 0), m_skin, 0.2)
+			_soft_box(head, Vector3(0.3, 0.07, 0.1), Vector3(0, 0.22, 0.12), m_acc, 0.2) # sobrancelha
+			_soft_box(head, Vector3(0.2, 0.07, 0.1), Vector3(0, 0.02, 0.1), m_acc, 0.2) # mandíbula
 			_box(head, Vector3(0.08, 0.1, 0.1), Vector3(-0.09, 0.28, -0.05), m_acc) # pedras no topo
 			_box(head, Vector3(0.1, 0.07, 0.1), Vector3(0.08, 0.27, 0.0), m_acc)
 			var m_eye := _rune_material()
@@ -757,20 +887,31 @@ func _build() -> void:
 	for side in [["r", -1.0], ["l", 1.0]]:
 		var n: String = side[0]
 		var sg: float = side[1]
-		var sh := _pivot(spine, "sh_" + n, Vector3(sg * 0.3 * b, 0.48, 0))
+		# Clavícula: levanta e projeta o ombro quando o braço sobe ou vai à frente.
+		var clav := _pivot(chest, "clav_" + n, Vector3(sg * CLAV_X * b, 0.48 - CHEST_Y, 0))
+		var sh := _pivot(clav, "sh_" + n, Vector3(sg * (0.3 - CLAV_X) * b, 0, 0))
 		var pr := 0.09 * b * pauldron_scale
 		_sphere(sh, pr, Vector3(sg * 0.02, 0.03, 0), m_acc, Vector3(1.15, 0.8, 1.05))
-		_capsule(sh, 0.056 * b, 0.3, Vector3(0, -0.15, 0), m_cloth)
 		var el := _pivot(sh, "el_" + n, Vector3(0, -0.3, 0))
 		_sphere(el, 0.05 * b, Vector3.ZERO, m_acc)
-		_capsule(el, 0.048 * b, 0.26, Vector3(0, -0.13, 0), m_skin)
-		_box(el, Vector3(0.11 * b, 0.13, 0.11 * b), Vector3(0, -0.2, 0), m_leather) # manopla
+		_soft_box(el, Vector3(0.11 * b, 0.13, 0.11 * b), Vector3(0, -0.2, 0), m_leather, 0.45) # manopla
 		var hand := Node3D.new()
 		hand.name = "hand_" + n
 		hand.position = Vector3(0, -0.29, 0)
 		el.add_child(hand)
 		hand.scale = Vector3.ONE * fist_scale
-		_box(hand, Vector3(0.085 * b, 0.1, 0.095), Vector3(0, -0.01, 0.005), m_leather) # punho
+		_soft_box(hand, Vector3(0.085 * b, 0.075, 0.095), Vector3(0, 0.0, 0.005), m_leather, 0.5) # palma
+		_hands[n] = hand
+		# Dedos: pivô nos nós dos dedos. 0° = punho fechado; abre girando para fora (palma aberta).
+		var fingers := Node3D.new()
+		fingers.name = "fingers_" + n
+		fingers.position = Vector3(0, -0.035, 0.045)
+		hand.add_child(fingers)
+		_fingers[n] = fingers
+		_soft_box(fingers, Vector3(0.085 * b, 0.045, 0.06), Vector3(0, -0.015, -0.02), m_leather, 0.6) # falanges
+		_soft_box(fingers, Vector3(0.08 * b, 0.03, 0.035), Vector3(0, -0.045, -0.04), m_leather, 0.6) # pontas
+		var thumb := _capsule(hand, 0.019, 0.07, Vector3(-sg * 0.045 * b, -0.015, 0.04), m_leather) # polegar
+		thumb.rotation_degrees = Vector3(35, 0, sg * 20)
 		if n == "r":
 			_build_weapon(hand, m_acc)
 		else:
@@ -781,17 +922,228 @@ func _build() -> void:
 
 		# Pernas: coxa, joelheira, cano da bota e pé
 		var th := _pivot(_hips, "th_" + n, Vector3(sg * 0.11 * b, -0.02, 0))
-		_capsule(th, 0.085 * b, THIGH_LEN, Vector3(0, -THIGH_LEN * 0.5, 0), m_cloth)
 		var kn := _pivot(th, "kn_" + n, Vector3(0, -THIGH_LEN, 0))
 		_sphere(kn, 0.07 * b, Vector3(0, 0, 0.035), m_acc, Vector3(1.0, 1.0, 0.8))
-		_capsule(kn, 0.072 * b, 0.4, Vector3(0, -0.21, 0), m_leather)
 		var ft := Node3D.new() # tornozelo: o pé gira por conta própria para acompanhar o chão
 		ft.name = "ft_" + n
 		ft.position = Vector3(0, -SHIN_LEN, 0)
 		kn.add_child(ft)
 		_feet[n] = ft
-		_box(ft, Vector3(0.115 * b, 0.08, 0.25), Vector3(0, 0.02, 0.05), m_leather)
-		_box(ft, Vector3(0.12 * b, 0.025, 0.26), Vector3(0, -0.02, 0.05), m_dark) # sola
+		# Pé em duas partes: calcanhar/peito do pé e ponta, que dobra (junta "toe") ao desprender.
+		_soft_box(ft, Vector3(0.115 * b, 0.09, 0.17), Vector3(0, 0.02, 0.01), m_leather, 0.45)
+		_soft_box(ft, Vector3(0.12 * b, 0.025, 0.18), Vector3(0, -0.02, 0.01), m_dark, 0.25) # sola
+		var toe := Node3D.new()
+		toe.name = "toe_" + n
+		toe.position = Vector3(0, -0.02, TOE_Z)
+		ft.add_child(toe)
+		_toes[n] = toe
+		_soft_box(toe, Vector3(0.112 * b, 0.07, 0.1), Vector3(0, 0.035, 0.04), m_leather, 0.55)
+		_soft_box(toe, Vector3(0.118 * b, 0.025, 0.1), Vector3(0, 0.0, 0.04), m_dark, 0.35) # sola
+
+	# Corpo (tronco, pescoço, braços e pernas) numa malha contínua com esqueleto: dobra suave nas
+	# articulações, sem emendas entre peças. Armaduras, mãos, pés e cabeça continuam peças presas.
+	_build_body_skin(m_skin, m_cloth, m_leather)
+
+
+# --- Malha contínua com esqueleto ----------------------------------------------
+
+## Ossos do corpo: espelham as juntas animadas (cada osso copia a transformação da sua junta).
+const SKIN_BONES: Array[String] = [
+	"hips", "spine", "chest", "neck", "head", "clav_l", "clav_r", "sh_l", "sh_r", "el_l", "el_r",
+	"th_l", "th_r", "kn_l", "kn_r", "ft_l", "ft_r",
+]
+## Vértices por anel das malhas tubulares (mais = mais redondo).
+const RING_SEGMENTS := 28
+
+var _skel: Skeleton3D
+var _skin_res: Skin
+var _bone_nodes: Array[Node3D] = []
+
+
+func _bone_node(bone: String) -> Node3D:
+	if bone.begins_with("ft_"):
+		return _feet[bone.substr(3)]
+	return _joints[bone]
+
+
+func _build_body_skin(m_skin: StandardMaterial3D, m_cloth: StandardMaterial3D, m_leather: StandardMaterial3D) -> void:
+	_skel = Skeleton3D.new()
+	_skel.name = "BodySkeleton"
+	add_child(_skel)
+	_skin_res = Skin.new()
+	_bone_nodes.clear()
+	var inv := _skel.global_transform.affine_inverse()
+	var rest := {} # osso -> origem em repouso (espaço do esqueleto)
+	for i in SKIN_BONES.size():
+		var node := _bone_node(SKIN_BONES[i])
+		_bone_nodes.append(node)
+		var xf := inv * node.global_transform
+		xf.basis = xf.basis.orthonormalized()
+		_skel.add_bone(SKIN_BONES[i])
+		_skel.set_bone_rest(i, xf)
+		_skin_res.add_bind(i, xf.affine_inverse())
+		rest[SKIN_BONES[i]] = xf.origin
+	var bi := func(bone: String) -> int: return SKIN_BONES.find(bone)
+	var b := bulk
+	var hy: float = (rest["hips"] as Vector3).y
+	var sy: float = (rest["spine"] as Vector3).y
+	var cy: float = (rest["chest"] as Vector3).y
+	var ny: float = (rest["neck"] as Vector3).y
+	var hdy: float = (rest["head"] as Vector3).y
+	var H: int = bi.call("hips")
+	var S: int = bi.call("spine")
+	var C: int = bi.call("chest")
+	var N: int = bi.call("neck")
+	var HD: int = bi.call("head")
+	# Anel: [centro, raio x, raio z, osso a, osso b, peso de b]
+	_tube([
+		[Vector3(0, hy - 0.11, 0), 0.11 * b, 0.09 * b, H, H, 0.0],
+		[Vector3(0, hy - 0.03, 0), 0.175 * b, 0.125 * b, H, H, 0.0],
+		[Vector3(0, sy, 0.0), 0.172 * b, 0.12 * b, H, S, 0.5],
+		[Vector3(0, sy + 0.11, 0.005), 0.165 * b, 0.115 * b, S, S, 0.0],
+		[Vector3(0, cy, 0.01), 0.19 * b, 0.125 * b, S, C, 0.5],
+		[Vector3(0, cy + 0.12, 0.012), 0.235 * b, 0.14 * b, C, C, 0.0],
+		[Vector3(0, cy + 0.23, 0.0), 0.25 * b, 0.13 * b, C, C, 0.0],
+		[Vector3(0, cy + 0.3, -0.005), 0.2 * b, 0.105 * b, C, C, 0.0],
+		[Vector3(0, ny - 0.01, 0.0), 0.075, 0.068, C, N, 0.3],
+	], m_cloth)
+	_tube([
+		[Vector3(0, ny - 0.03, 0.0), 0.062, 0.058, C, N, 0.5],
+		[Vector3(0, ny + 0.05, 0.005), 0.057, 0.054, N, N, 0.0],
+		[Vector3(0, hdy + 0.0, 0.01), 0.055, 0.052, N, HD, 0.6],
+		[Vector3(0, hdy + 0.08, 0.01), 0.05, 0.05, HD, HD, 0.0],
+	], m_skin)
+	for n in ["l", "r"]:
+		var CL: int = bi.call("clav_" + n)
+		var SH: int = bi.call("sh_" + n)
+		var EL: int = bi.call("el_" + n)
+		var TH: int = bi.call("th_" + n)
+		var KN: int = bi.call("kn_" + n)
+		var FT: int = bi.call("ft_" + n)
+		var sh: Vector3 = rest["sh_" + n]
+		var el: Vector3 = rest["el_" + n]
+		var th: Vector3 = rest["th_" + n]
+		var kn: Vector3 = rest["kn_" + n]
+		var ft: Vector3 = rest["ft_" + n]
+		# Braço (roupa) e antebraço (pele): o anel do cotovelo é o mesmo nos dois (sem emenda).
+		_tube([
+			[sh + Vector3(0, 0.04, 0), 0.062 * b, 0.062 * b, CL, SH, 0.6],
+			[sh + Vector3(0, -0.04, 0), 0.068 * b, 0.066 * b, SH, SH, 0.0],
+			[sh + Vector3(0, -0.13, 0.008), 0.072 * b, 0.07 * b, SH, SH, 0.0],
+			[sh + Vector3(0, -0.23, 0.0), 0.058 * b, 0.056 * b, SH, SH, 0.0],
+			[el + Vector3(0, 0.02, 0), 0.051 * b, 0.05 * b, SH, EL, 0.4],
+			[el + Vector3(0, -0.01, 0), 0.05 * b, 0.049 * b, SH, EL, 0.6],
+		], m_cloth)
+		_tube([
+			[el + Vector3(0, -0.01, 0), 0.05 * b, 0.049 * b, SH, EL, 0.6],
+			[el + Vector3(0, -0.07, 0.004), 0.055 * b, 0.052 * b, EL, EL, 0.0],
+			[el + Vector3(0, -0.17, 0.0), 0.047 * b, 0.044 * b, EL, EL, 0.0],
+			[el + Vector3(0, -0.27, 0.0), 0.04 * b, 0.038 * b, EL, EL, 0.0],
+		], m_skin)
+		# Coxa (roupa) e canela/bota (couro).
+		_tube([
+			[th + Vector3(0, 0.07, 0), 0.095 * b, 0.1 * b, H, TH, 0.3],
+			[th + Vector3(0, -0.02, 0), 0.1 * b, 0.102 * b, H, TH, 0.75],
+			[th + Vector3(0, -0.16, 0.008), 0.098 * b, 0.1 * b, TH, TH, 0.0],
+			[th + Vector3(0, -0.34, 0.0), 0.08 * b, 0.08 * b, TH, TH, 0.0],
+			[kn + Vector3(0, 0.03, 0), 0.072 * b, 0.072 * b, TH, KN, 0.4],
+			[kn + Vector3(0, -0.01, 0), 0.071 * b, 0.071 * b, TH, KN, 0.6],
+		], m_cloth)
+		_tube([
+			[kn + Vector3(0, -0.01, 0), 0.071 * b, 0.071 * b, TH, KN, 0.6],
+			[kn + Vector3(0, -0.12, -0.01), 0.078 * b, 0.08 * b, KN, KN, 0.0],
+			[kn + Vector3(0, -0.28, 0.0), 0.064 * b, 0.064 * b, KN, KN, 0.0],
+			[ft + Vector3(0, 0.05, 0.0), 0.06 * b, 0.062 * b, KN, FT, 0.3],
+		], m_leather)
+
+
+## Malha tubular com pesos de osso: anéis elípticos no plano XZ ligados por quads, com tampas.
+## Cada anel: [centro: Vector3, raio x, raio z, osso a, osso b, peso de b].
+func _tube(rings: Array, mat: StandardMaterial3D) -> MeshInstance3D:
+	var n := RING_SEGMENTS
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var axis_dir: Vector3 = ((rings[rings.size() - 1][0] as Vector3) - (rings[0][0] as Vector3)).normalized()
+	for ring in rings:
+		for k in n:
+			var a := TAU * k / n
+			var off := Vector3(cos(a) * float(ring[1]), 0.0, sin(a) * float(ring[2]))
+			var nrm := Vector3(cos(a) * float(ring[2]), 0.0, sin(a) * float(ring[1])).normalized()
+			_skin_vertex(st, (ring[0] as Vector3) + off, nrm, ring)
+	# Tampas (centro de cada ponta).
+	var first: Array = rings[0]
+	var last: Array = rings[rings.size() - 1]
+	_skin_vertex(st, first[0], -axis_dir, first)
+	_skin_vertex(st, last[0], axis_dir, last)
+	var cap0 := rings.size() * n
+	var cap1 := cap0 + 1
+	# Ordem dos triângulos: os anéis vão no sentido de axis_dir; escolhe o giro que aponta para fora.
+	var flip := axis_dir.y < 0.0
+	for i in rings.size() - 1:
+		for k in n:
+			var a0 := i * n + k
+			var a1 := i * n + (k + 1) % n
+			var b0 := (i + 1) * n + k
+			var b1 := (i + 1) * n + (k + 1) % n
+			_tri(st, a0, b0, a1, flip)
+			_tri(st, a1, b0, b1, flip)
+	var top := (rings.size() - 1) * n
+	for k in n:
+		_tri(st, cap0, k, (k + 1) % n, flip)
+		_tri(st, cap1, top + (k + 1) % n, top + k, flip)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	_skel.add_child(mi)
+	mi.skin = _skin_res
+	mi.skeleton = NodePath("..")
+	return mi
+
+
+func _tri(st: SurfaceTool, a: int, b: int, c: int, flip: bool) -> void:
+	st.add_index(a)
+	st.add_index(c if flip else b)
+	st.add_index(b if flip else c)
+
+
+func _skin_vertex(st: SurfaceTool, pos: Vector3, nrm: Vector3, ring: Array) -> void:
+	var w := float(ring[5])
+	st.set_normal(nrm)
+	st.set_bones(PackedInt32Array([int(ring[3]), int(ring[4]), 0, 0]))
+	st.set_weights(PackedFloat32Array([1.0 - w, w, 0.0, 0.0]))
+	st.add_vertex(pos)
+
+
+## Copia a transformação de cada junta animada para o osso correspondente (malha deforma junto).
+func _update_skin() -> void:
+	if _skel == null:
+		return
+	var inv := _skel.global_transform.affine_inverse()
+	for i in _bone_nodes.size():
+		var xf := inv * _bone_nodes[i].global_transform
+		_skel.set_bone_pose_position(i, xf.origin)
+		_skel.set_bone_pose_rotation(i, xf.basis.get_rotation_quaternion())
+		_skel.set_bone_pose_scale(i, xf.basis.get_scale())
+
+
+## Partes do corpo para o Hurtbox: cápsulas no espaço local de cada junta (antes da escala do rig).
+## Cada uma: {"name", "node": Node3D, "a": Vector3, "b": Vector3, "r": float}; a == b = esfera.
+func hurt_parts() -> Array[Dictionary]:
+	var b := bulk
+	var out: Array[Dictionary] = []
+	var head_r := 0.17 if headgear == Headgear.GOLEM else 0.145
+	out.append({"name": "head", "node": _joints["head"], "a": Vector3(0, 0.15, 0), "b": Vector3(0, 0.15, 0), "r": head_r})
+	out.append({"name": "chest", "node": _joints["chest"], "a": Vector3(-0.1 * b, 0.15, 0), "b": Vector3(0.1 * b, 0.15, 0), "r": 0.15 * b})
+	out.append({"name": "belly", "node": _joints["spine"], "a": Vector3(-0.07 * b, 0.12, 0), "b": Vector3(0.07 * b, 0.12, 0), "r": 0.125 * b})
+	out.append({"name": "pelvis", "node": _hips, "a": Vector3(-0.07 * b, -0.01, 0), "b": Vector3(0.07 * b, -0.01, 0), "r": 0.13 * b})
+	for n in ["l", "r"]:
+		out.append({"name": "arm_" + n, "node": _joints["sh_" + n], "a": Vector3(0, 0.0, 0), "b": Vector3(0, -0.28, 0), "r": 0.07 * b})
+		out.append({"name": "forearm_" + n, "node": _joints["el_" + n], "a": Vector3.ZERO, "b": Vector3(0, -0.26, 0), "r": 0.06 * b})
+		out.append({"name": "hand_" + n, "node": _joints["el_" + n], "a": Vector3(0, -0.31, 0.01), "b": Vector3(0, -0.31, 0.01), "r": 0.055 * b * fist_scale})
+		out.append({"name": "thigh_" + n, "node": _joints["th_" + n], "a": Vector3(0, -0.02, 0), "b": Vector3(0, -THIGH_LEN, 0), "r": 0.09 * b})
+		out.append({"name": "shin_" + n, "node": _joints["kn_" + n], "a": Vector3.ZERO, "b": Vector3(0, -SHIN_LEN + 0.04, 0), "r": 0.075 * b})
+		out.append({"name": "foot_" + n, "node": _feet[n], "a": Vector3(0, 0.02, -0.06), "b": Vector3(0, 0.02, 0.15), "r": 0.055 * b})
+	return out
 
 
 ## Espada/clava na mão direita. O pulso ("wr_r") é uma junta animada: com rotação zero a lâmina
@@ -822,6 +1174,7 @@ func _make_weapon() -> void:
 	socket.rotation_degrees = Vector3(90, 0, 0) # +Z do soquete = linha do antebraço
 	_wrist.add_child(socket)
 
+	_spear_body = null
 	sword_base = Marker3D.new()
 	sword_tip = Marker3D.new()
 	socket.add_child(sword_base)
@@ -861,12 +1214,21 @@ func _make_weapon() -> void:
 			var shaft := _mat(Color(0.5, 0.36, 0.2), 0.8)
 			var head_steel := _mat(Color(0.82, 0.86, 0.92), 0.25)
 			head_steel.metallic = 0.8
-			_box(socket, Vector3(0.04, 0.04, 2.3), Vector3(0, 0, 0.85), shaft)
-			_box(socket, Vector3(0.06, 0.06, 0.1), Vector3(0, 0, -0.28), mat) # contrapeso
-			_box(socket, Vector3(0.012, 0.11, 0.34), Vector3(0, 0, 2.08), head_steel) # folha
-			_box(socket, Vector3(0.012, 0.05, 0.14), Vector3(0, 0, 2.3), head_steel) # ponta
-			_box(socket, Vector3(0.07, 0.07, 0.05), Vector3(0, 0, 1.9), mat) # colar
-			_box(socket, Vector3(0.012, 0.2, 0.03), Vector3(0, 0, 1.9), mat) # aletas
+			# Tudo num nó próprio, que desliza ao longo da haste (pegada no meio fora dos golpes).
+			var body := Node3D.new()
+			body.name = "SpearBody"
+			socket.add_child(body)
+			_spear_body = body
+			_box(body, Vector3(0.04, 0.04, 2.3), Vector3(0, 0, 0.85), shaft)
+			_box(body, Vector3(0.06, 0.06, 0.1), Vector3(0, 0, -0.28), mat) # contrapeso
+			_box(body, Vector3(0.012, 0.11, 0.34), Vector3(0, 0, 2.08), head_steel) # folha
+			_box(body, Vector3(0.012, 0.05, 0.14), Vector3(0, 0, 2.3), head_steel) # ponta
+			_box(body, Vector3(0.07, 0.07, 0.05), Vector3(0, 0, 1.9), mat) # colar
+			_box(body, Vector3(0.012, 0.2, 0.03), Vector3(0, 0, 1.9), mat) # aletas
+			socket.remove_child(sword_base)
+			socket.remove_child(sword_tip)
+			body.add_child(sword_base)
+			body.add_child(sword_tip)
 			sword_base.position = Vector3(0, 0, 0.9)
 			sword_tip.position = Vector3(0, 0, 2.35)
 		Weapon.STAFF:
@@ -887,7 +1249,7 @@ func _build_tabard(pos: Vector3, mat: StandardMaterial3D) -> Node3D:
 	var pivot := Node3D.new()
 	pivot.position = pos
 	_hips.add_child(pivot)
-	_box(pivot, Vector3(0.28 * bulk, 0.42, 0.02), Vector3(0, -0.21, 0), mat)
+	_soft_box(pivot, Vector3(0.28 * bulk, 0.42, 0.025), Vector3(0, -0.21, 0), mat, 0.25)
 	return pivot
 
 
@@ -895,7 +1257,7 @@ func _build_tabard(pos: Vector3, mat: StandardMaterial3D) -> Node3D:
 func _build_cape(spine: Node3D) -> void:
 	var m := _mat(cape_color, 0.9)
 	var parent: Node3D = spine
-	var pos := Vector3(0, 0.54, -0.15 * bulk)
+	var pos := Vector3(0, 0.54 - CHEST_Y, -0.15 * bulk)
 	var widths := [0.5, 0.54, 0.58]
 	for i in 3:
 		var pivot := Node3D.new()
@@ -1090,8 +1452,51 @@ func _sphere(parent: Node3D, radius: float, pos: Vector3, mat: StandardMaterial3
 	return mi
 
 
+static var _soft_cache := {}
+
+
+## Caixa de cantos arredondados (superelipsoide): roundness 0 = quase caixa, 1 = elipsoide.
+## Mais vértices que uma BoxMesh e com normais suaves; a malha é compartilhada por tamanho.
+func _soft_box(parent: Node3D, size: Vector3, pos: Vector3, mat: StandardMaterial3D, roundness := 0.4) -> MeshInstance3D:
+	var key := "%.3f,%.3f,%.3f|%.2f" % [size.x, size.y, size.z, roundness]
+	if not _soft_cache.has(key):
+		_soft_cache[key] = _make_soft_box(size, roundness)
+	return _add(parent, _soft_cache[key], pos, mat)
+
+
+static func _make_soft_box(size: Vector3, roundness: float) -> ArrayMesh:
+	var sphere := SphereMesh.new()
+	sphere.radial_segments = 32
+	sphere.rings = 16
+	var arrays := sphere.get_mesh_arrays()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var half := size * 0.5
+	# Superfície Σ|p/half|^(2/e) = 1: e pequeno = caixa, e = 1 = elipsoide.
+	var e := lerpf(0.15, 1.0, clampf(roundness, 0.0, 1.0))
+	var n_exp := 2.0 / e
+	for i in verts.size():
+		var d := verts[i].normalized()
+		var q := Vector3(signf(d.x) * pow(absf(d.x), e), signf(d.y) * pow(absf(d.y), e), signf(d.z) * pow(absf(d.z), e))
+		verts[i] = q * half
+		# Normal = gradiente da superfície implícita.
+		var g := Vector3(
+			signf(q.x) * pow(absf(q.x), n_exp - 1.0) / half.x,
+			signf(q.y) * pow(absf(q.y), n_exp - 1.0) / half.y,
+			signf(q.z) * pow(absf(q.z), n_exp - 1.0) / half.z)
+		normals[i] = g.normalized() if g.length_squared() > 0.0 else d
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TANGENT] = null
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
 func _capsule(parent: Node3D, radius: float, length: float, pos: Vector3, mat: StandardMaterial3D) -> MeshInstance3D:
 	var m := CapsuleMesh.new()
 	m.radius = radius
 	m.height = maxf(length, radius * 2.0)
+	m.radial_segments = 32
+	m.rings = 12
 	return _add(parent, m, pos, mat)

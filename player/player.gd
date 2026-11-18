@@ -17,6 +17,8 @@ const POISE_BASE := 9.0
 const POISE_SHIELD := 60.0
 const POISE_REGEN := 14.0
 const SHIELD_DAMAGE_MULT := 0.25
+## Besta sem lock-on: distância (m) do ponto à frente onde os virotes convergem.
+const BOLT_AIM_DISTANCE := 10.0
 ## Colide só com o cenário; o contato com outros personagens é resolvido pelo BodyContacts
 ## (empurrões suaves por massa). A esquiva desliga o contato para atravessar inimigos.
 const BODY_MASK := 1 << 0
@@ -34,15 +36,8 @@ const ART_MAX := 100.0
 const ART_COST := 50.0
 const ART_GAIN_PER_DAMAGE := 0.8
 const ART_GAIN_ON_HURT := 4.0
-## Ataque carregado: segurar o ataque sobe a "estância" (0 a 3). Quanto maior, mais dano, mais
-## quebra de postura no alvo, e mais mitigação de dano e resistência a cambalear enquanto carrega.
-const CHARGE_TIMES: Array[float] = [0.45, 0.95, 1.55] # segundos para atingir as estâncias 1, 2 e 3
-const CHARGE_DAMAGE: Array[float] = [1.0, 1.4, 1.9, 2.6]
-const CHARGE_POISE: Array[float] = [1.0, 1.4, 2.0, 3.0] # multiplica o dano no poise do alvo
-const CHARGE_KNOCKBACK: Array[float] = [1.0, 1.2, 1.5, 1.9]
-const CHARGE_HITBOX: Array[float] = [1.0, 1.1, 1.25, 1.5]
-const CHARGE_ARMOR_DAMAGE: Array[float] = [0.85, 0.7, 0.55, 0.4] # mitigação: dano recebido x
-const CHARGE_ARMOR_POISE: Array[float] = [1.5, 2.5, 4.0, 8.0] # divide o dano no seu poise
+## Ataque carregado: segurar o ataque sobe a "estância" (0 a 3). Os tempos e multiplicadores de cada
+## arma ficam em `moveset.charge` (ChargeProfile); aqui só as cores de cada estância.
 const CHARGE_COLORS: Array[Color] = [
 	Color(0.9, 0.9, 1.0), Color(1.0, 0.9, 0.45), Color(1.0, 0.55, 0.15), Color(1.0, 0.2, 0.12),
 ]
@@ -349,12 +344,16 @@ func fire_projectile() -> void:
 	var origin := global_position + Vector3(0, 1.2, 0)
 	if rig.offhand_tip != null:
 		origin = rig.offhand_tip.global_position
-	var dir := forward()
+	var dir: Vector3
 	if has_lock():
 		dir = (lock_target.global_position + Vector3(0, 1.0, 0) - origin).normalized()
 	else:
-		dir.y = 0.0
-		dir = dir.normalized()
+		# A besta fica na mão esquerda (fora do eixo do corpo): mira num ponto à frente, na linha do
+		# centro, para o virote convergir em vez de voar paralelo e passar ao lado do alvo.
+		var fwd := forward()
+		fwd.y = 0.0
+		var aim_point := global_position + fwd.normalized() * BOLT_AIM_DISTANCE + Vector3(0, 1.2, 0)
+		dir = (aim_point - origin).normalized()
 	Sfx.play(&"fire", origin)
 	var proj := FIREBALL.instantiate()
 	proj.direction = dir
@@ -369,13 +368,17 @@ func fire_bolt() -> void:
 	var origin := global_position + Vector3(0, 1.3, 0) + forward() * 0.6
 	if rig.offhand_tip != null:
 		origin = rig.offhand_tip.global_position
-	var dir := forward()
+	var dir: Vector3
 	if has_lock():
 		dir = (lock_target.global_position + Vector3(0, 1.0, 0) - origin).normalized()
 	else:
-		dir.y = 0.0
-		dir = dir.normalized()
-	dir = dir.rotated(Vector3.UP, deg_to_rad(randf_range(-1.8, 1.8))).rotated(forward().cross(Vector3.UP).normalized(), deg_to_rad(randf_range(-0.8, 0.8)))
+		# A besta fica na mão esquerda (fora do eixo do corpo): mira num ponto à frente, na linha do
+		# centro, para o virote convergir em vez de voar paralelo e passar ao lado do alvo.
+		var fwd := forward()
+		fwd.y = 0.0
+		var aim_point := global_position + fwd.normalized() * BOLT_AIM_DISTANCE + Vector3(0, 1.2, 0)
+		dir = (aim_point - origin).normalized()
+	dir = dir.rotated(Vector3.UP, deg_to_rad(randf_range(-0.6, 0.6))).rotated(forward().cross(Vector3.UP).normalized(), deg_to_rad(randf_range(-0.3, 0.3)))
 	Sfx.play(&"bow", origin, -8.0, randf_range(1.3, 1.6))
 	var b := Bolt.new()
 	b.direction = dir
@@ -441,7 +444,7 @@ func _filter_hit(hit: HitData) -> HitData:
 	if armor_level >= 0: # mitigação da estância
 		var a: HitData = hit.duplicate()
 		a.source = hit.source
-		a.damage = roundi(hit.damage * CHARGE_ARMOR_DAMAGE[armor_level])
+		a.damage = roundi(hit.damage * moveset.charge.armor_damage[armor_level])
 		hit = a
 	if machine.current_name() != "Guard":
 		# Escudo equipado: corta 75% de todo o dano recebido, mesmo sem levantar a guarda.
@@ -508,11 +511,11 @@ func _on_damaged(hit: HitData) -> void:
 		return
 	# Stance: golpes que não quebram o poise não fazem o player cambalear (só o dano é aplicado).
 	var state := machine.current_name()
-	if state != "Hurt" and armor_level >= 3 and hit.launch <= 0.0 and hit.damage > 0:
+	if state != "Hurt" and moveset.charge.is_unshakable(armor_level) and hit.launch <= 0.0 and hit.damage > 0:
 		rig.flash(Color(1.0, 0.3, 0.2), 0.2) # estância máxima: inabalável
 		return
-	var armor_div: float = CHARGE_ARMOR_POISE[armor_level] if armor_level >= 0 else 1.0
-	var breaks := hit.poise_break and armor_level < 2 # da estância 2 em diante a super armor aguenta quebra
+	var armor_div: float = moveset.charge.armor_poise[armor_level] if armor_level >= 0 else 1.0
+	var breaks := hit.poise_break and not moveset.charge.resists_break(armor_level) # estância alta aguenta quebra
 	if state != "Hurt" and not breaks and hit.launch <= 0.0 and hit.damage > 0:
 		poise -= _pending_poise / armor_div
 		if poise > 0.0:

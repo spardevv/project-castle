@@ -57,6 +57,8 @@ func _hit_sound(hit: HitData, victim: Node, killed: bool, blocked: bool) -> void
 
 
 func shake(intensity: float, direction := Vector3.ZERO) -> void:
+	if not Settings.screen_shake:
+		return
 	shake_requested.emit(intensity, direction)
 
 
@@ -73,7 +75,7 @@ func slowmo(time_scale: float, duration: float) -> void:
 
 ## Vibração em todos os controles conectados (só quando o último input foi de controle).
 func rumble(weak: float, strong: float, duration: float) -> void:
-	if not InputGlyphs.is_gamepad():
+	if not InputGlyphs.is_gamepad() or not Settings.vibration:
 		return
 	for id in Input.get_connected_joypads():
 		Input.start_joy_vibration(id, clampf(weak, 0.0, 1.0), clampf(strong, 0.0, 1.0), duration)

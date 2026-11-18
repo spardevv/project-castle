@@ -12,6 +12,7 @@ var _out_dir := "user://pose_sheets"
 var _filter := ""
 var _hammer := false
 var _shield := false
+var _spear := false
 
 
 func _ready() -> void:
@@ -26,6 +27,9 @@ func _ready() -> void:
 	if _filter.begins_with("hm:"): # "hm:move_" = folhas com o martelo
 		_filter = _filter.substr(3)
 		_hammer = true
+	if _filter.begins_with("sp:"): # "sp:move_" = folhas com a lança
+		_filter = _filter.substr(3)
+		_spear = true
 	DirAccess.make_dir_recursive_absolute(_out_dir)
 	_build_stage()
 	await _render_all()
@@ -66,6 +70,8 @@ func _build_stage() -> void:
 			if _hammer or _filter.contains("hm_"):
 				rig.offhand = HumanoidRig.Offhand.NONE
 				rig.weapon = HumanoidRig.Weapon.HAMMER
+			if _spear or _filter.contains("sp_"):
+				rig.weapon = HumanoidRig.Weapon.SPEAR
 			if _filter.begins_with("golem"):
 				rig.offhand = HumanoidRig.Offhand.NONE
 				rig.weapon = HumanoidRig.Weapon.NONE
@@ -87,14 +93,15 @@ func _build_stage() -> void:
 
 
 func _render_all() -> void:
-	for anim in Poses.ATTACKS.keys():
+	var two_handed := AttackData.two_handed_anims()
+	for anim in Poses.ATTACKS.keys() + Poses._spear_defs().keys():
 		var prefix := "golem_atk_" if _filter.begins_with("golem") else "atk_"
 		await _sheet(prefix + anim, func(rig: HumanoidRig, i: int) -> void:
 			var su := 0.3
 			var ac := 0.15
 			var re := 0.45
 			var times := [0.0, su * 0.6, su, su + ac * 0.5, su + ac, su + ac + re * 0.5]
-			rig.set_attack(anim, su, ac, re, times[i]))
+			rig.set_attack(anim, su, ac, re, times[i], two_handed.has(anim)))
 	# Dano: empurrado para trás, para frente, para a direita, para a esquerda; depois o recuo voltando.
 	await _sheet("react_hurt", func(rig: HumanoidRig, i: int) -> void:
 		var local_dirs := [Vector3(0, 0, -1), Vector3(0, 0, 1), Vector3(-1, 0, 0), Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 0, -1)]
@@ -124,6 +131,15 @@ func _render_all() -> void:
 	await _sheet("move_walk", func(rig: HumanoidRig, i: int) -> void:
 		rig.set_motion(3.6, true, 0.0)
 		rig._phase = i * TAU / 6.0)
+	# Besta: mirando parado (2 primeiros), andando (2) e correndo (2).
+	await _sheet("aim_crossbow", func(rig: HumanoidRig, i: int) -> void:
+		rig.set_offhand(HumanoidRig.Offhand.CROSSBOW)
+		rig.set_aim(true)
+		rig.set_motion([0.0, 0.0, 3.6, 3.6, 7.0, 7.0][i], true, 0.0)
+		rig._phase = [0.0, 0.0, 0.0, PI, 0.0, PI][i])
+	await _sheet("move_idle", func(rig: HumanoidRig, i: int) -> void:
+		rig.set_motion(0.0, true, 0.0)
+		rig._time = i * 0.5)
 
 
 func _sheet(sheet_name: String, setup: Callable) -> void:

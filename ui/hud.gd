@@ -62,7 +62,8 @@ func _refresh_controls() -> void:
 		["Lock-on / trocar alvo", "%s / %s para os lados" % [g.label(&"lock_on"), g.camera_label()]],
 		["Summon: invocar/dispensar", g.label(&"summon")],
 		["Skills do summon (segurar)", "%s + botão" % g.label(&"summon_mod")],
-		["Menu de equipamento", g.label(&"menu")],
+		["Menu de equipamento", g.label(&"menu") if not g.is_gamepad() else "%s → Equipamento" % g.label(&"pause")],
+		["Pausa / opções / reiniciar", g.label(&"pause")],
 		["Mostrar/ocultar controles", g.label(&"toggle_controls")],
 	]
 	var lines: Array[String] = ["— %s —" % g.device_name()]

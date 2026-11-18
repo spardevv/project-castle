@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Menu de equipamento (Tab / Start): pausa o jogo e permite trocar o equipamento secundário
+## Menu de equipamento (Tab, ou Start → Equipamento no menu de pausa): pausa o jogo e permite trocar o equipamento secundário
 ## e a skill de cada slot do summon. Navegação: ↑/↓ escolhe a linha, ←/→ ou A/Enter troca o valor,
 ## B/Esc ou Tab/Start fecha. As mudanças vão para o GameState na hora (o jogo aplica pelo sinal).
 
@@ -177,14 +177,14 @@ func _refresh() -> void:
 			var slot: int = row["index"]
 			(row["label"] as Label).text = "%s + %s" % [g.label(&"summon_mod"), g.label(SLOT_BUTTONS[slot])]
 			b.text = "‹  %s  ›" % SummonSkills.name_of(GameState.summon_slots[slot])
-	_hint.text = "↑/↓ escolher   ←/→ ou %s trocar   %s fechar" % [g.label(&"jump") if g.is_gamepad() else "Enter", g.label(&"menu")]
+	_hint.text = "↑/↓ escolher   ←/→ ou %s trocar   %s fechar" % [g.label(&"jump") if g.is_gamepad() else "Enter", g.label(&"menu") if not g.is_gamepad() else g.label(&"pause")]
 
 
 func _update_desc(row: Dictionary) -> void:
 	if row["kind"] == "primary":
 		_desc.text = "Espada longa: rápida, combos fluidos.\nMartelo: pesado e lento, muito mais dano e golpes que quebram a defesa do inimigo (derruba).\nLança: alcance bem maior e stun médio; estocadas que mantêm o inimigo a distância."
 	elif row["kind"] == "secondary":
-		_desc.text = "Orbe de fogo: %s conjura uma bola de fogo que explode em área.\nEscudo: reduz 75%% de todo o dano e aumenta muito o stance (não cambaleia fácil); LT bloqueia/parry, %s é uma investida.\nBesta automática: segure %s para uma rajada de virotes rápidos e de pouco dano; anda devagar enquanto atira." % [
+		_desc.text = "Orbe de fogo: %s conjura uma bola de fogo que explode em área.\nEscudo: reduz 75%% de todo o dano e aumenta muito o stance (não cambaleia fácil); LT bloqueia/parry, %s é uma investida.\nBesta automática: segure %s para disparar virotes em sequência, sem parar de andar ou correr." % [
 			InputGlyphs.label(&"secondary"), InputGlyphs.label(&"secondary"), InputGlyphs.label(&"secondary")]
 	elif row["kind"] == "summon":
 		_desc.text = "Golem de Pedra: combate corpo a corpo, provoca e agarra.\nSacerdote: fica atrás de você curando, dando buffs, aplicando debuffs e com poucas skills de dano. \nMago: fica no seu flanco lançando magias de dano em área (bola de fogo, gelo, raios, meteoros). Troque e invoque de novo com %s." % InputGlyphs.label(&"summon")

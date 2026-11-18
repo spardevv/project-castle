@@ -38,10 +38,11 @@ func physics_update(delta: float) -> void:
 	_ping = maxf(_ping - delta * 3.0, 0.0)
 
 	# Preparação do golpe, segurada com tremor de esforço.
-	p.rig.set_attack(_move.anim_id(), _move.startup, _move.active, _move.recovery, minf(_t * 1.6, _move.startup * 0.999))
+	p.rig.set_attack(_move.anim_id(), _move.startup, _move.active, _move.recovery, minf(_t * 1.6, _move.startup * 0.999), _move.two_handed)
 
 	# Sobe de estância.
-	if _stance < 3 and _t >= Player.CHARGE_TIMES[_stance]:
+	var prof := p.moveset.charge
+	if _stance < ChargeProfile.MAX_STANCE and _t >= prof.times[_stance]:
 		_stance += 1
 		_ping = 1.0
 		p.armor_level = _stance
@@ -49,13 +50,13 @@ func physics_update(delta: float) -> void:
 		var col: Color = Player.CHARGE_COLORS[_stance]
 		Fx.burst(p, p.global_position + Vector3(0, 0.1, 0), 1.2 + 0.5 * _stance, col, 0.45)
 		Sfx.play(&"clink", p.global_position + Vector3(0, 1.0, 0), 0.0, 0.8 + 0.3 * _stance)
-		if _stance == 3:
+		if _stance == ChargeProfile.MAX_STANCE:
 			Sfx.play(&"art_use", p.global_position + Vector3(0, 1.0, 0), -4.0)
 		GameFeel.shake(0.05 + 0.04 * _stance)
 		GameFeel.rumble(0.25, 0.1 * _stance, 0.12)
-	if _stance < 3:
-		var from_t: float = 0.0 if _stance == 0 else Player.CHARGE_TIMES[_stance - 1]
-		p.charge_progress = _stance + clampf((_t - from_t) / (Player.CHARGE_TIMES[_stance] - from_t), 0.0, 1.0) * 0.99
+	if _stance < ChargeProfile.MAX_STANCE:
+		var from_t: float = 0.0 if _stance == 0 else prof.times[_stance - 1]
+		p.charge_progress = _stance + clampf((_t - from_t) / (prof.times[_stance] - from_t), 0.0, 1.0) * 0.99
 	else:
 		p.charge_progress = 3.0
 

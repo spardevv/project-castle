@@ -5,6 +5,7 @@ arquivos-fonte:
   - player/states/charge.gd
   - player/states/attack.gd
   - player/player.gd
+  - combat/charge_profile.gd
 ---
 
 
@@ -17,6 +18,8 @@ o golpe com os multiplicadores da estância. Só no chão.
 - Espada → `overhead` ([[Espada longa]]) · Martelo → esmagamento carregado `h_charge` ([[Martelo]]).
 
 ## Estâncias
+Valores por arma em `MoveSet.charge` (`ChargeProfile`). Hoje as três armas usam o padrão abaixo.
+
 | Estância | Tempo segurando | Dano | Poise (alvo) | Knockback | Hitbox | **Mitigação** ao carregar | Poise próprio ÷ |
 |---|---|---|---|---|---|---|---|
 | 0 | 0 s | ×1,0 | ×1,0 | ×1,0 | ×1,0 | −15% | 1,5 |
@@ -39,5 +42,6 @@ Regras extras:
 - Som: `clink` com tom crescente; `art_use` na estância 3.
 
 > [!info] Fonte
-> Constantes `CHARGE_*` em `player/player.gd`; lógica em `player/states/charge.gd` e `_hit_data()` em `attack.gd`.
+> Valores em `combat/charge_profile.gd` (`ChargeProfile.apply()` aplica a estância no golpe); cores em `Player.CHARGE_COLORS`;
+> lógica em `player/states/charge.gd`. Testes: `tests/test_charge_profile.gd`.
 > Teste: [[Ferramentas de teste]] (`charge_probe`).

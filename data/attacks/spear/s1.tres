@@ -7,6 +7,7 @@ script = ExtResource("1")
 id = "s1"
 display_name = "Estocada"
 anim = "sp_thrust1"
+two_handed = true
 damage = 12
 knockback = 4.5
 hitstun = 0.55

@@ -7,6 +7,7 @@ script = ExtResource("1")
 id = "s3"
 display_name = "Estocada profunda"
 anim = "sp_heavy"
+two_handed = true
 damage = 17
 knockback = 9.0
 hitstun = 0.65

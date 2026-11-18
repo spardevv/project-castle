@@ -7,6 +7,7 @@ script = ExtResource("1")
 id = "h_lunge"
 display_name = "Investida do martelo"
 anim = "hm_lunge"
+two_handed = true
 damage = 22
 knockback = 9.0
 hitstun = 0.6

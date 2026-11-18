@@ -1,26 +1,28 @@
 extends PlayerState
-## Besta automática: enquanto o botão secundário estiver segurado, dispara virotes em rajada
-## (pouco dano cada, cadência alta). Anda devagar enquanto atira; esquiva e golpes cancelam.
+## Besta automática: enquanto o botão secundário estiver segurado, dispara virotes em sequência.
+## Atira andando e correndo normalmente: o braço esquerdo fica estendido mirando (camada de mira do
+## rig sobre a locomoção) e não há tranco a cada disparo. Esquiva, ataque e pulo cancelam.
 
-const FIRE_INTERVAL := 0.12
-const MOVE_SPEED := 2.4
+const FIRE_INTERVAL := 0.3 # ~3,3 disparos/s
+const FIRST_SHOT_DELAY := 0.08 # tempo para o braço chegar à mira antes do 1º virote
 const MIN_TIME := 0.2 # pelo menos um disparo mesmo num toque rápido
 const COOLDOWN := 0.25
 
 var _t := 0.0
-var _shot_t := 99.0
+var _shot_t := 0.0
 
 
 func enter(_msg: Dictionary = {}) -> void:
 	_t = 0.0
-	_shot_t = FIRE_INTERVAL # primeiro disparo imediato
+	_shot_t = FIRE_INTERVAL - FIRST_SHOT_DELAY
 	player.combo_memory_time = 0.0
 	player.snap_face_to_intent()
+	player.rig.set_aim(true)
 
 
 func exit() -> void:
 	player.secondary_cooldown = COOLDOWN
-	player.rig.set_offhand_charge(0.0)
+	player.rig.set_aim(false)
 
 
 func physics_update(delta: float) -> void:
@@ -28,7 +30,7 @@ func physics_update(delta: float) -> void:
 	_t += delta
 	_shot_t += delta
 	if not p.is_on_floor():
-		p.apply_gravity(delta, 0.5)
+		p.apply_gravity(delta)
 
 	if p.buffered(&"dodge") and p.can_dodge():
 		p.consume(&"dodge")
@@ -37,9 +39,17 @@ func physics_update(delta: float) -> void:
 	if p.consume(&"attack"):
 		p.start_attack()
 		return
+	if p.buffered(&"jump") and p.coyote > 0.0:
+		p.consume(&"jump")
+		p.velocity.y = p.jump_velocity
+		Sfx.play(&"jump", p.global_position)
+		p.coyote = 0.0
+		machine.change_to(&"Air")
+		return
 
+	# Movimento igual ao normal (andar/correr), virado para o alvo travado ou para onde anda.
 	var dir := p.get_move_dir()
-	p.accelerate(dir, MOVE_SPEED, 30.0, delta)
+	p.accelerate(dir, p.move_speed(), p.acceleration, delta)
 	if p.has_lock():
 		var to := p.lock_target.global_position - p.global_position
 		p.update_facing(Vector3(to.x, 0.0, to.z).normalized(), delta)
@@ -49,9 +59,8 @@ func physics_update(delta: float) -> void:
 	if _shot_t >= FIRE_INTERVAL:
 		_shot_t = 0.0
 		p.fire_bolt()
-	p.rig.set_attack("cast", 0.04, 0.06, 0.1, _shot_t)
-	p.rig.set_offhand_charge(1.0 - _shot_t / FIRE_INTERVAL)
 
 	p.move_and_slide()
+	p.anim_motion()
 	if _t >= MIN_TIME and not Input.is_action_pressed("secondary"):
 		land_or_fall()

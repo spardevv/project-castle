@@ -6,7 +6,8 @@
 script = ExtResource("1")
 id = "s_plunge"
 display_name = "Mergulho"
-anim = "plunge"
+anim = "sp_plunge"
+two_handed = true
 damage = 20
 knockback = 8.0
 hitstun = 0.7

@@ -17,3 +17,5 @@ extends Resource
 @export var poise_mult := 1.0
 
 var source: Node3D
+## Parte do corpo atingida ("head", "chest", "arm_l"...). Vazio = golpe de área ou alvo sem rig.
+var part := ""

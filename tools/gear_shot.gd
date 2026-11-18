@@ -45,15 +45,16 @@ func _ready() -> void:
 			match i:
 				0:
 					rig.set_weapon(HumanoidRig.Weapon.SPEAR)
-					rig.set_attack("sp_thrust1", 0.16, 0.14, 0.34, 0.3 if row == 1 else 0.0)
+					rig.set_attack("sp_thrust1", 0.16, 0.14, 0.34, 0.3 if row == 1 else 0.0, true)
 				1:
 					rig.set_weapon(HumanoidRig.Weapon.SWORD)
 					rig.set_offhand(HumanoidRig.Offhand.CROSSBOW)
-					rig.set_attack("cast", 0.04, 0.06, 0.1, 0.06)
+					rig.set_aim(true)
+					rig.set_motion(0.0, true, 0.0)
 				2:
 					rig.set_weapon(HumanoidRig.Weapon.SPEAR)
 					rig.set_offhand(HumanoidRig.Offhand.CROSSBOW)
-					rig.set_attack("sp_heavy", 0.3, 0.14, 0.5, 0.36 if row == 1 else 0.0)
+					rig.set_attack("sp_heavy", 0.3, 0.14, 0.5, 0.36 if row == 1 else 0.0, true)
 				3:
 					rig.set_attack("priest_cast", 0.35, 0.1, 0.25, 0.4 if row == 1 else 0.0)
 			rig.snap()

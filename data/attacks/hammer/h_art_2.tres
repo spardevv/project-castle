@@ -7,6 +7,7 @@ script = ExtResource("1")
 id = "h_art_2"
 display_name = "Fúria: uppercut"
 anim = "hm_rising"
+two_handed = true
 damage = 24
 knockback = 6.0
 hitstun = 1.0

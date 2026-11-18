@@ -32,8 +32,8 @@ Personagem olha para +Z; membros pendurados: X negativo balança para frente; tr
 yaw positivo vira à esquerda; braço direito (arma): Z negativo abre para fora. Ordem de rotação Godot = YXZ.
 
 ### Tabelas
-`WEIGHT` (peso por golpe — [[Peso dos golpes]]), `HOLD` (frações cravadas), `CHARGE_SHAKE`, `ALIAS` (reuso de poses),
-`TWO_HANDED` ([[Duas mãos]]). Poses de reação: `HURT_*`, `AIR_HURT`, `DOWN`, `KNEEL`, guarda, esquiva.
+`WEIGHT` (peso por golpe — [[Peso dos golpes]]), `HOLD` (frações cravadas), `CHARGE_SHAKE`, `ALIAS` (reuso de poses).
+Quem é de duas mãos é atributo do golpe (`AttackData.two_handed` — [[Duas mãos]]). Poses de reação: `HURT_*`, `AIR_HURT`, `DOWN`, `KNEEL`, guarda, esquiva.
 
 ## Molas (rig)
 Cada junta persegue a pose-alvo como uma **mola amortecida** (inércia, passa um pouco do ponto, assenta):

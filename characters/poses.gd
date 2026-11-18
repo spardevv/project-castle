@@ -39,16 +39,10 @@ const WEIGHT := {
 	"hm_rising": 0.9, "hm_air1": 0.75, "hm_air2": 0.8, "hm_plunge": 0.95,
 	"hm_spin": 0.9, "hm_art_slam": 1.0,
 	# Lança: estocadas.
-	"sp_thrust1": 0.3, "sp_thrust2": 0.3, "sp_heavy": 0.8, "sp_rising": 0.5,
+	"sp_thrust1": 0.3, "sp_thrust2": 0.3, "sp_heavy": 0.8, "sp_rising": 0.5, "sp_plunge": 0.8,
 }
 
 ## Animações que reaproveitam as poses de outra (mudam só peso/tremor).
-## Golpes feitos com as duas mãos (a esquerda segura a arma; orbe/escudo são guardados).
-const TWO_HANDED := {
-	"hm_smash": true, "hm_charge": true, "hm_lunge": true, "hm_rising": true, "hm_plunge": true, "hm_spin": true, "hm_art_slam": true,
-	"overhead": true, "art_finish": true, "plunge": true,
-}
-
 const ALIAS := {"hm_charge": "hm_smash", "hm_art_slam": "hm_smash"}
 
 ## Fração da recuperação em que o corpo fica "cravado" na pose final (martelo preso no chão).
@@ -782,7 +776,7 @@ static func _spear_defs() -> Dictionary:
 		# (a lança é longa: o ângulo do braço decide se a ponta passa pelo alvo).
 		var st := _variant(ATTACKS["stinger"], {
 			"windup": {"root": Vector3(0, -0.12, -0.12), "hips": Vector3(0, -12, 0), "spine": Vector3(6, -10, 0), "head": Vector3(0, 8, 0),
-				"sh_r": Vector3(20, 30, -10), "el_r": Vector3(-130, 0, 0), "wr_r": Vector3.ZERO},
+				"sh_r": Vector3(20, 30, -10), "el_r": Vector3(-114, 0, 0), "wr_r": Vector3.ZERO},
 			"strike": {"hips": Vector3(0, 10, 0), "spine": Vector3(22, 6, 0), "head": Vector3(6, -6, 0),
 				"sh_r": Vector3(-70, -30, -10), "el_r": Vector3(-50, 0, 0), "wr_r": Vector3.ZERO},
 			"follow": {"hips": Vector3(0, 12, 0), "spine": Vector3(24, 8, 0), "head": Vector3(6, -8, 0),
@@ -800,9 +794,21 @@ static func _spear_defs() -> Dictionary:
 				"strike": {"root": Vector3(0, -0.24, 0.5), "th_l": Vector3(-62, 0, 4), "kn_l": Vector3(45, 0, 0), "spine": Vector3(34, 8, 0)},
 				"follow": {"root": Vector3(0, -0.25, 0.52), "th_l": Vector3(-64, 0, 4), "kn_l": Vector3(48, 0, 0), "spine": Vector3(36, 10, 0)},
 			}),
+			# Estocada ascendente: agachado com a ponta baixa, sobe estocando para cima e à frente (lança o alvo).
 			"sp_rising": _variant(ATTACKS["rising"], {
-				"strike": {"sh_r": Vector3(-132, -20, 0), "wr_r": Vector3.ZERO},
-				"follow": {"sh_r": Vector3(-138, -15, 0), "wr_r": Vector3.ZERO},
+				"windup": {"hips": Vector3(0, -12, 0), "spine": Vector3(20, -10, 0), "head": Vector3(0, 8, 0),
+					"sh_r": Vector3(10, 25, -10), "el_r": Vector3(-100, 0, 0), "wr_r": Vector3.ZERO},
+				"strike": {"hips": Vector3(0, 10, 0), "spine": Vector3(-8, 6, 0), "head": Vector3(-14, -6, 0),
+					"sh_r": Vector3(-95, -25, -10), "el_r": Vector3(-40, 0, 0), "wr_r": Vector3.ZERO},
+				"follow": {"hips": Vector3(0, 12, 0), "spine": Vector3(-10, 8, 0), "head": Vector3(-16, -6, 0),
+					"sh_r": Vector3(-98, -25, -10), "el_r": Vector3(-40, 0, 0), "wr_r": Vector3.ZERO},
+			}),
+			# Mergulho: lança apontada para baixo e à frente, crava no chão ao descer.
+			"sp_plunge": _variant(ATTACKS["plunge"], {
+				"windup": {"spine": Vector3(10, -8, 0), "head": Vector3(10, 6, 0),
+					"sh_r": Vector3(-30, -20, -10), "el_r": Vector3(-40, 0, 0), "wr_r": Vector3.ZERO},
+				"strike": {"spine": Vector3(25, 0, 0), "head": Vector3(25, 0, 0),
+					"sh_r": Vector3(-45, -15, -10), "el_r": Vector3(-5, 0, 0), "wr_r": Vector3.ZERO},
 			}),
 		}
 	return _spear_cache
@@ -837,7 +843,8 @@ static func step_length(run: float) -> float:
 
 
 ## Idle, andar, correr, pulo e queda.
-static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, time: float, carry_wrist := 999.0) -> Dictionary:
+## spear_carry: lança numa mão só, pegada no meio, ponta à frente e para cima (não vai ao ombro).
+static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, time: float, carry_wrist := 999.0, spear_carry := false) -> Dictionary:
 	if not on_floor:
 		return _cached("air_up", AIR_UP) if vy > 0.5 else _cached("air_down", AIR_DOWN)
 	if speed < 0.4:
@@ -866,7 +873,12 @@ static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, ti
 		"sh_r": Vector3(-10.0 - s * arm * 0.4, 0, -28), "el_r": Vector3(-35.0 - run * 15.0, 0, 0),
 		"wr_r": Vector3(lerpf(50.0, 85.0, run), 0, 0), # lâmina aponta para trás-baixo, ponta longe do chão
 	}
-	if carry_wrist < 900.0:
+	if spear_carry:
+		# Haste inclinada à frente, ponta alta; ao correr a ponta abaixa um pouco e aponta mais à frente.
+		pose["sh_r"] = Vector3(-24.0 - run * 14.0 - s * 3.0, -10, -14)
+		pose["el_r"] = Vector3(-55.0 - run * 10.0, 0, 0)
+		pose["wr_r"] = Vector3(-45.0 + run * 15.0, 0, 0)
+	elif carry_wrist < 900.0:
 		# Posição de descanso: arma apoiada no ombro direito, ponta para cima/trás (nunca para o chão).
 		pose["sh_r"] = Vector3(-22.0 - s * 4.0, 8, -34)
 		pose["el_r"] = Vector3(-105.0, 0, 0)

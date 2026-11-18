@@ -58,7 +58,7 @@ func physics_update(delta: float) -> void:
 	var d := _data
 	_t += delta
 	var active_end := d.startup + d.active
-	p.rig.set_attack(d.anim_id(), d.startup, d.active, d.recovery, _t)
+	p.rig.set_attack(d.anim_id(), d.startup, d.active, d.recovery, _t, d.two_handed)
 
 	if not p.is_on_floor():
 		p.apply_gravity(delta, 0.4)

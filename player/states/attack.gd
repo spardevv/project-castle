@@ -32,7 +32,7 @@ func enter(msg: Dictionary = {}) -> void:
 
 	var box_size := _data.hitbox_size
 	if _charge > 0:
-		var k: float = Player.CHARGE_HITBOX[_charge]
+		var k: float = p.moveset.charge.hitbox[_charge]
 		box_size = Vector3(box_size.x * k, box_size.y, box_size.z * k)
 	var shape := p.attack_hitbox.get_node("CollisionShape3D") as CollisionShape3D
 	(shape.shape as BoxShape3D).size = box_size
@@ -54,7 +54,7 @@ func physics_update(delta: float) -> void:
 	var d := _data
 	_t += delta
 	var active_end := d.startup + d.active
-	p.rig.set_attack(d.anim_id(), d.startup, d.active, d.recovery, _t)
+	p.rig.set_attack(d.anim_id(), d.startup, d.active, d.recovery, _t, d.two_handed)
 	var diving := d.dive_speed > 0.0 and _t >= d.startup and not _landed
 
 	if diving:
@@ -151,15 +151,4 @@ func _chain(kind: String, dir: String) -> void:
 
 ## Dados do golpe, com os multiplicadores da estância quando é um golpe carregado.
 func _hit_data() -> HitData:
-	var h := _data.make_hit_data()
-	if _charge > 0:
-		h.damage = roundi(h.damage * Player.CHARGE_DAMAGE[_charge])
-		h.knockback *= Player.CHARGE_KNOCKBACK[_charge]
-		h.poise_mult *= Player.CHARGE_POISE[_charge]
-		h.hitstop *= 1.0 + 0.25 * _charge
-		if _charge >= 2:
-			h.poise_break = true # a partir da estância 2 quebra a super armor
-		if _charge >= 3:
-			h.launch = maxf(h.launch, 5.0)
-			h.hitstun = maxf(h.hitstun, 1.0)
-	return h
+	return player.moveset.charge.apply(_data.make_hit_data(), _charge)

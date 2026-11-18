@@ -84,17 +84,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_idle_time = 0.0
 		if not _has_lock():
-			_yaw -= event.relative.x * mouse_sensitivity
-		_pitch -= event.relative.y * mouse_sensitivity
-	elif event.is_action_pressed("ui_cancel"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			_yaw -= event.relative.x * mouse_sensitivity * Settings.camera_sensitivity
+		_pitch -= event.relative.y * mouse_sensitivity * Settings.camera_sensitivity * _y_sign()
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+## -1 com "Inverter eixo Y" ligado nas opções.
+func _y_sign() -> float:
+	return -1.0 if Settings.invert_y else 1.0
+
+
 func _physics_process(delta: float) -> void:
 	var look := Input.get_vector("cam_left", "cam_right", "cam_up", "cam_down")
-	_pitch -= look.y * stick_sensitivity * delta
+	_pitch -= look.y * stick_sensitivity * Settings.camera_sensitivity * _y_sign() * delta
 
 	var locked := _has_lock()
 	var goal_distance := distance
@@ -116,7 +119,7 @@ func _physics_process(delta: float) -> void:
 		goal_distance = clampf(lock_min_distance + flat.length() * 0.45, lock_min_distance, lock_max_distance)
 		goal_fov = fov_lock
 	else:
-		_yaw -= look.x * stick_sensitivity * delta
+		_yaw -= look.x * stick_sensitivity * Settings.camera_sensitivity * delta
 		if look.length() > 0.1:
 			_idle_time = 0.0
 		else:
