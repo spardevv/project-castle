@@ -38,6 +38,8 @@ const WEIGHT := {
 	"hm_swing_r": 0.85, "hm_swing_l": 0.9, "hm_smash": 1.0, "hm_charge": 1.0, "hm_lunge": 0.9,
 	"hm_rising": 0.9, "hm_air1": 0.75, "hm_air2": 0.8, "hm_plunge": 0.95,
 	"hm_spin": 0.9, "hm_art_slam": 1.0,
+	# Lança: estocadas.
+	"sp_thrust1": 0.3, "sp_thrust2": 0.3, "sp_heavy": 0.8, "sp_rising": 0.5,
 }
 
 ## Animações que reaproveitam as poses de outra (mudam só peso/tremor).
@@ -769,6 +771,52 @@ static func _cached(key: String, partial: Dictionary) -> Dictionary:
 	return _cache[key]
 
 
+## Estocadas da lança: variações das poses da estocada/corte ascendente da espada (o rig segura a
+## lança com as duas mãos nesses golpes; a mão esquerda é posta no cabo por IK).
+static var _spear_cache := {}
+
+
+static func _spear_defs() -> Dictionary:
+	if _spear_cache.is_empty():
+		# Base: tronco quase de frente e braço ajustado para a haste apontar reto à frente
+		# (a lança é longa: o ângulo do braço decide se a ponta passa pelo alvo).
+		var st := _variant(ATTACKS["stinger"], {
+			"windup": {"root": Vector3(0, -0.12, -0.12), "hips": Vector3(0, -12, 0), "spine": Vector3(6, -10, 0), "head": Vector3(0, 8, 0),
+				"sh_r": Vector3(20, 30, -10), "el_r": Vector3(-130, 0, 0), "wr_r": Vector3.ZERO},
+			"strike": {"hips": Vector3(0, 10, 0), "spine": Vector3(22, 6, 0), "head": Vector3(6, -6, 0),
+				"sh_r": Vector3(-70, -30, -10), "el_r": Vector3(-50, 0, 0), "wr_r": Vector3.ZERO},
+			"follow": {"hips": Vector3(0, 12, 0), "spine": Vector3(24, 8, 0), "head": Vector3(6, -8, 0),
+				"sh_r": Vector3(-72, -32, -10), "el_r": Vector3(-48, 0, 0), "wr_r": Vector3.ZERO},
+		})
+		_spear_cache = {
+			"sp_thrust1": st,
+			"sp_thrust2": _variant(st, {
+				"windup": {"root": Vector3(0, -0.2, -0.14), "th_r": Vector3(-14, 0, -4), "th_l": Vector3(30, 0, 4)},
+				"strike": {"th_r": Vector3(-52, 0, -4), "th_l": Vector3(40, 0, 4), "kn_r": Vector3(32, 0, 0), "kn_l": Vector3(2, 0, 0)},
+				"follow": {"th_r": Vector3(-54, 0, -4), "th_l": Vector3(42, 0, 4), "kn_r": Vector3(36, 0, 0), "kn_l": Vector3(2, 0, 0)},
+			}),
+			"sp_heavy": _variant(st, {
+				"windup": {"root": Vector3(0, -0.3, -0.2), "spine": Vector3(12, -14, 0)},
+				"strike": {"root": Vector3(0, -0.24, 0.5), "th_l": Vector3(-62, 0, 4), "kn_l": Vector3(45, 0, 0), "spine": Vector3(34, 8, 0)},
+				"follow": {"root": Vector3(0, -0.25, 0.52), "th_l": Vector3(-64, 0, 4), "kn_l": Vector3(48, 0, 0), "spine": Vector3(36, 10, 0)},
+			}),
+			"sp_rising": _variant(ATTACKS["rising"], {
+				"strike": {"sh_r": Vector3(-132, -20, 0), "wr_r": Vector3.ZERO},
+				"follow": {"sh_r": Vector3(-138, -15, 0), "wr_r": Vector3.ZERO},
+			}),
+		}
+	return _spear_cache
+
+
+static func _variant(base: Dictionary, over: Dictionary) -> Dictionary:
+	var out := {}
+	for phase in base:
+		var d: Dictionary = (base[phase] as Dictionary).duplicate()
+		d.merge(over.get(phase, {}), true)
+		out[phase] = d
+	return out
+
+
 static func _ease_out(u: float) -> float:
 	return 1.0 - pow(1.0 - clampf(u, 0.0, 1.0), 3.0)
 
@@ -779,7 +827,7 @@ static func _ease_in_out(u: float) -> float:
 
 ## Amplitude do balanço das pernas (graus) para andar (0) a correr (1).
 static func _stride_amp(run: float) -> float:
-	return lerpf(34.0, 55.0, run)
+	return lerpf(22.0, 34.0, run)
 
 
 ## Comprimento de um passo (m, sem escala do rig) que corresponde à amplitude acima: o rig avança a
@@ -833,7 +881,7 @@ static func locomotion(phase: float, speed: float, on_floor: bool, vy: float, ti
 static func attack(anim: String, startup: float, active: float, recovery: float, t: float, from := {}) -> Dictionary:
 	var key := "atk_" + anim
 	if not _cache.has(key):
-		var def: Dictionary = ATTACKS.get(ALIAS.get(anim, anim), ATTACKS["a1"])
+		var def: Dictionary = ATTACKS.get(ALIAS.get(anim, anim), _spear_defs().get(anim, ATTACKS["a1"]))
 		var strike := full(def["strike"])
 		var follow := full(def["follow"]) if def.has("follow") else strike
 		_cache[key] = [full(def["windup"]), strike, follow]

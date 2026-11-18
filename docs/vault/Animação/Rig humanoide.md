@@ -27,7 +27,7 @@ pulso da arma (`wr_r`), coxas/joelhos (`th_*`, `kn_*`). A pose é um `Dictionary
 | Aterrissagem | tranco para baixo no quadril, mola devolve |
 | Olhar | a cabeça vira para o alvo do [[Lock-on e câmera|lock-on]] (limites ±30° / ±70°) |
 | Tabardo e capa | seguem o corpo com atraso e pendem para baixo no mundo |
-| IK das pernas | pé que ficaria abaixo do chão (degrau, agachado) dobra joelho/coxa |
+| IK das pernas | **trava de pé**: ao andar, o pé de apoio fica preso a um ponto do mundo (sem deslizar, em qualquer direção/velocidade); o pé em balanço é guiado ao ponto de toque previsto (meio passo à frente) e o quadril desce até 18 cm para alcançar. Fora disso, pé abaixo do chão (degrau, agachado) dobra joelho/coxa. Medido com `slide_probe`. Pé com pivô próprio (`ft_l/ft_r`): chato no chão no apoio, ponta para baixo ao desprender, calcanhar primeiro ao pousar |
 | Passos | fase do ciclo avança pela **distância andada** (sem deslize) |
 | Balanço da arma | acelerar deixa a arma para trás; curva joga para fora; correr balança no passo — [[Posicionamento das armas]] |
 | Tremor de carga | corpo treme mais a cada estância — [[Ataque carregado]] |

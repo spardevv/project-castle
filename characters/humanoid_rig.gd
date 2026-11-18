@@ -9,19 +9,25 @@ extends Node3D
 ## Pés em y=0, ~1,9 m de altura, frente = +Z.
 
 enum Mode { LOCOMOTION, ATTACK, DODGE, GUARD, HURT, DEAD, AIR_HURT, KNOCKDOWN }
-enum Weapon { SWORD, CLUB, NONE, BOW, HAMMER, STAFF }
+enum Weapon { SWORD, CLUB, NONE, BOW, HAMMER, STAFF, SPEAR }
 ## Equipamento secundário na mão esquerda.
-enum Offhand { NONE, ORB, SHIELD }
-enum Headgear { HELMET, HOOD, HAIR, GOLEM }
+enum Offhand { NONE, ORB, SHIELD, CROSSBOW }
+enum Headgear { HELMET, HOOD, HAIR, GOLEM, WIZARD }
 
 const HIP_Y := 0.95
 ## Distância do pomo do martelo até a mão (pegada no meio do cabo).
 const HAMMER_GRIP := 0.5
 ## Onde a mão esquerda segura a arma nos golpes de duas mãos (z no soquete da arma).
-const GRIP2 := {0: -0.14, 4: 0.12} # Weapon.SWORD, Weapon.HAMMER
+const GRIP2 := {0: -0.14, 4: 0.12, 6: 0.62} # Weapon.SWORD, Weapon.HAMMER, Weapon.SPEAR
 const THIGH_LEN := 0.45
 const SHIN_LEN := 0.45
 const FOOT_H := 0.06
+const LEG_REACH := THIGH_LEN + SHIN_LEN - 0.012
+## Tempo para soltar/prender o pé da trava e queda máxima do quadril para alcançar o pé travado.
+const FOOT_BLEND := 0.1
+## Quanto antes do toque o pé em balanço já é guiado ao ponto de pouso (s).
+const PRE_PLANT := 0.09
+const MAX_PELVIS_DROP := 0.15
 const ROT_JOINTS: Array[String] = [
 	"hips", "spine", "head", "sh_l", "el_l", "sh_r", "el_r", "wr_r", "th_l", "kn_l", "th_r", "kn_r",
 ]
@@ -132,6 +138,13 @@ var _cape: Array[Dictionary] = [] # {"pivot": Node3D, "angle": float, "vel": flo
 var _tab_f: Node3D
 var _tab_b: Node3D
 var _tab := Vector2.ZERO # ângulos atuais (frente, trás)
+# Trava de pé (índice 0 = esquerdo, 1 = direito)
+var _foot_lock: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
+var _foot_w: Array[float] = [0.0, 0.0]
+var _phase_rate := 0.0 # rad/s do ciclo de passos
+var _stride_half := 0.0 # meio passo (m, já com a escala do rig)
+var _pelvis_drop := 0.0
+var _feet: Dictionary = {} # "l"/"r" -> pivô do pé
 
 
 func _ready() -> void:
@@ -315,7 +328,7 @@ func _process(delta: float) -> void:
 	_apply()
 	_two_hand_apply(delta)
 	_update_cloth(delta)
-	_leg_ik()
+	_leg_ik(delta)
 
 
 ## Juntas como molas amortecidas (Euler semi-implícito, subpassos para estabilidade).
@@ -364,7 +377,11 @@ func _track_motion(delta: float) -> void:
 		var run := clampf(inverse_lerp(2.5, 7.0, _speed), 0.0, 1.0)
 		# Um ciclo (2 passos) por 2 comprimentos de passo: o pé de apoio não desliza.
 		var step := Poses.step_length(run) * height
-		_phase += TAU * hv * delta / (2.0 * step)
+		_phase_rate = TAU * hv / (2.0 * step)
+		_stride_half = 0.5 * step
+		_phase += _phase_rate * delta
+	else:
+		_phase_rate = 0.0
 
 
 ## Inclinação (aceleração e curva), amortecimento de aterrissagem e olhar.
@@ -438,7 +455,7 @@ func _carry_wrist() -> float:
 	match weapon:
 		Weapon.HAMMER:
 			return -112.0
-		Weapon.SWORD, Weapon.CLUB:
+		Weapon.SWORD, Weapon.CLUB, Weapon.SPEAR:
 			return -92.0
 	return 999.0
 
@@ -446,7 +463,9 @@ func _carry_wrist() -> float:
 ## Golpes de duas mãos: a mão esquerda segue o cabo da arma (IK de dois ossos) e o que ela
 ## segurava (orbe, escudo) é guardado enquanto isso.
 func _two_hand_apply(delta: float, instant := false) -> void:
-	var want := _mode == Mode.ATTACK and GRIP2.has(int(weapon)) and Poses.TWO_HANDED.has(_atk_anim)
+	var want := _mode == Mode.ATTACK and GRIP2.has(int(weapon)) and (Poses.TWO_HANDED.has(_atk_anim) or weapon == Weapon.SPEAR)
+	if weapon == Weapon.SPEAR and _mode == Mode.GUARD:
+		want = true # lança: sempre com as duas mãos
 	var goal := 1.0 if want else 0.0
 	_two_hand = goal if instant else move_toward(_two_hand, goal, delta / 0.14)
 	# Escudo: de lado no antebraço (andar, atacar, parado); de frente só na guarda e na investida.
@@ -526,38 +545,129 @@ func _update_cloth(delta: float) -> void:
 		pivot.rotation.x = seg["angle"]
 
 
-## IK de duas juntas: se o tornozelo estiver abaixo do chão (degrau, agachamento, aterrissagem),
-## dobra joelho e coxa para apoiar o pé sobre o chão. Só levanta o pé; nunca estica a perna.
-func _leg_ik() -> void:
+## IK nas pernas com TRAVA DE PÉ. Ao andar, o pé de apoio fica preso a um ponto do mundo desde o
+## toque até o desprendimento (sem deslizar, a qualquer velocidade ou direção); o pé que vai pousar
+## é guiado ao ponto previsto de toque (meio passo à frente do quadril) e o quadril desce o
+## necessário para a perna alcançar. Fora do ciclo de passos, só levanta o pé que estiver abaixo
+## do chão (degrau, agachamento, aterrissagem).
+func _leg_ik(delta: float) -> void:
 	if not foot_ik or not is_inside_tree():
 		return
 	if _mode in [Mode.DEAD, Mode.AIR_HURT, Mode.KNOCKDOWN]:
+		_foot_w = [0.0, 0.0]
 		return
 	var space := get_world_3d().direct_space_state
-	for n in ["l", "r"]:
-		var th: Node3D = _joints["th_" + n]
-		var kn: Node3D = _joints["kn_" + n]
+	var walking := _mode == Mode.LOCOMOTION and _on_floor and _speed > 0.4 and _phase_rate > 0.01
+	var c := cos(_phase)
+	var goals: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
+	var need := 0.0
+	# 1) alvo de cada tornozelo (mundo) e quanto o quadril precisa descer para alcançá-lo
+	for i in 2:
+		var names := ["l", "r"]
+		var th: Node3D = _joints["th_" + names[i]]
+		var kn: Node3D = _joints["kn_" + names[i]]
 		var ankle := kn.global_transform * Vector3(0, -SHIN_LEN, 0)
-		var up := Vector3.UP * height
-		var q := PhysicsRayQueryParameters3D.create(ankle + up * 0.6, ankle - up * 0.25, 1)
-		var hit := space.intersect_ray(q)
-		if hit.is_empty():
+		var stance := walking and ((c < 0.0) if i == 0 else (c > 0.0))
+		var plant := stance
+		if walking and not stance:
+			# Balanço: prevê o ponto de toque; perto do toque o pé já é guiado até lá.
+			var rem := fposmod((PI * 0.5 if i == 0 else PI * 1.5) - _phase, TAU) / _phase_rate
+			_foot_lock[i] = _predict_touchdown(1.0 if i == 0 else -1.0, rem)
+			plant = rem < PRE_PLANT
+		_foot_w[i] = move_toward(_foot_w[i], 1.0 if plant else 0.0, delta / FOOT_BLEND)
+		var goal := ankle
+		var w: float = smoothstep(0.0, 1.0, _foot_w[i])
+		if w > 0.0:
+			var lock: Vector3 = _foot_lock[i]
+			var lq := PhysicsRayQueryParameters3D.create(lock + Vector3.UP * 0.5 * height, lock - Vector3.UP * 0.35 * height, 1)
+			var lh := space.intersect_ray(lq)
+			if not lh.is_empty():
+				lock.y = (lh["position"] as Vector3).y + FOOT_H * height
+				_foot_lock[i] = lock
+				goal = ankle.lerp(lock, w)
+				var inv := (th.get_parent() as Node3D).global_transform.affine_inverse()
+				var rel := inv * goal - th.position
+				var horiz := Vector2(rel.x, rel.z).length()
+				var vert := sqrt(maxf(LEG_REACH * LEG_REACH - horiz * horiz, 0.0))
+				need = maxf(need, -rel.y - vert)
+		goals[i] = goal
+	# 2) quadril desce suavemente (limitado: além disso o pé fica um pouco "curto" e só levanta)
+	need = clampf(need, 0.0, MAX_PELVIS_DROP)
+	_pelvis_drop = lerpf(_pelvis_drop, need, 1.0 - exp(-24.0 * delta))
+	_hips.position.y -= _pelvis_drop
+	# 3) resolve cada perna
+	for i in 2:
+		var names := ["l", "r"]
+		var th: Node3D = _joints["th_" + names[i]]
+		var kn: Node3D = _joints["kn_" + names[i]]
+		var goal := goals[i]
+		if _foot_w[i] <= 0.0:
+			# Sem trava: a pose manda, mas o pé nunca fica abaixo do chão.
+			var ankle := kn.global_transform * Vector3(0, -SHIN_LEN, 0)
+			var up := Vector3.UP * height
+			var q := PhysicsRayQueryParameters3D.create(ankle + up * 0.6, ankle - up * 0.25, 1)
+			var hit := space.intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var min_y: float = (hit["position"] as Vector3).y + FOOT_H * height
+			if ankle.y >= min_y:
+				continue
+			goal = Vector3(ankle.x, min_y, ankle.z)
+		_solve_leg(th, kn, goal)
+	_orient_feet(walking)
+
+
+## Pés planos no chão durante o apoio, com ponta para baixo ao desprender e calcanhar primeiro ao pousar.
+func _orient_feet(walking: bool) -> void:
+	var flat := Basis(Vector3.UP, global_rotation.y)
+	for i in 2:
+		var n: String = "l" if i == 0 else "r"
+		var ft: Node3D = _feet[n]
+		var w: float = smoothstep(0.0, 1.0, _foot_w[i])
+		if w <= 0.0:
+			ft.rotation = Vector3.ZERO
 			continue
-		var min_y: float = (hit["position"] as Vector3).y + FOOT_H * height
-		if ankle.y >= min_y:
-			continue
-		var parent := th.get_parent() as Node3D
-		var inv := parent.global_transform.affine_inverse()
-		var h_l := inv * th.global_position
-		var t_l := inv * Vector3(ankle.x, min_y, ankle.z)
-		var dy := t_l.y - h_l.y
-		var dz := t_l.z - h_l.z
-		var dist := clampf(sqrt(dy * dy + dz * dz), 0.1, THIGH_LEN + SHIN_LEN - 0.001)
-		var phi := atan2(dz, -dy) # ângulo a partir da vertical; positivo = para frente
-		var knee_int := acos(clampf((THIGH_LEN * THIGH_LEN + SHIN_LEN * SHIN_LEN - dist * dist) / (2.0 * THIGH_LEN * SHIN_LEN), -1.0, 1.0))
-		var alpha := acos(clampf((THIGH_LEN * THIGH_LEN + dist * dist - SHIN_LEN * SHIN_LEN) / (2.0 * THIGH_LEN * dist), -1.0, 1.0))
-		th.rotation.x = -(phi + alpha)
-		kn.rotation.x = PI - knee_int
+		var start := PI * 0.5 if i == 0 else PI * 1.5
+		var u := fposmod(_phase - start, TAU) / PI # 0..1 durante o apoio, >1 no balanço
+		var pitch := 0.0
+		if walking:
+			if u < 1.0:
+				pitch = deg_to_rad(28.0) * smoothstep(0.75, 1.0, u) - deg_to_rad(10.0) * (1.0 - smoothstep(0.0, 0.2, u))
+			else:
+				pitch = -deg_to_rad(14.0) # calcanhar primeiro, antes do toque
+		var want := flat * Basis(Vector3.RIGHT, pitch)
+		var kb := (_joints["kn_" + n] as Node3D).global_transform.basis.orthonormalized()
+		var local_q := (kb.inverse() * want).get_rotation_quaternion()
+		ft.basis = Basis(Quaternion.IDENTITY.slerp(local_q, w))
+
+
+## Onde o pé do lado `side` (+1 esquerdo, -1 direito) vai pousar daqui a `time` s: meio passo à
+## frente do quadril, na direção do movimento.
+func _predict_touchdown(side: float, time: float) -> Vector3:
+	var b := global_transform.basis.orthonormalized()
+	var hv := Vector3(_world_vel.x, 0.0, _world_vel.z)
+	var dir := hv.normalized() if hv.length() > 0.1 else b.z
+	var p := global_position + b.x * (side * 0.11 * bulk * height) + hv * time
+	return p + dir * _stride_half
+
+
+## IK de duas juntas em 3D: coloca o tornozelo em `goal` (mundo). O joelho dobra para frente.
+func _solve_leg(th: Node3D, kn: Node3D, goal: Vector3) -> void:
+	var parent := th.get_parent() as Node3D
+	var v := parent.global_transform.affine_inverse() * goal - th.position
+	var dist := clampf(v.length(), 0.1, THIGH_LEN + SHIN_LEN - 0.001)
+	var u := v.normalized()
+	var fwd := Vector3(0, 0, 1)
+	var f0 := fwd - u * fwd.dot(u)
+	f0 = f0.normalized() if f0.length() > 0.05 else Vector3.UP
+	var knee_int := acos(clampf((THIGH_LEN * THIGH_LEN + SHIN_LEN * SHIN_LEN - dist * dist) / (2.0 * THIGH_LEN * SHIN_LEN), -1.0, 1.0))
+	var alpha := acos(clampf((THIGH_LEN * THIGH_LEN + dist * dist - SHIN_LEN * SHIN_LEN) / (2.0 * THIGH_LEN * dist), -1.0, 1.0))
+	var d := (u * cos(alpha) + f0 * sin(alpha)).normalized() # direção da coxa
+	var f := (fwd - d * fwd.dot(d)).normalized()
+	var x := -(d.cross(f)).normalized() # eixo de dobra do joelho
+	var y := -d
+	th.basis = Basis(x, y, x.cross(y))
+	kn.rotation = Vector3(PI - knee_int, 0.0, 0.0)
 
 
 # --- Construção do corpo ----------------------------------------------------
@@ -617,6 +727,17 @@ func _build() -> void:
 		Headgear.HOOD:
 			_sphere(head, 0.15, Vector3(0, 0.16, -0.025), m_cloth, Vector3(1.05, 1.02, 1.1))
 			_box(head, Vector3(0.12, 0.03, 0.02), Vector3(0, 0.15, 0.115), m_dark) # sombra dos olhos
+		Headgear.WIZARD:
+			# Chapéu pontudo de aba larga.
+			_sphere(head, 0.2, Vector3(0, 0.27, 0), m_cloth, Vector3(1.0, 0.12, 1.0))
+			var cone := CylinderMesh.new()
+			cone.top_radius = 0.0
+			cone.bottom_radius = 0.14
+			cone.height = 0.42
+			var cone_mi := _add(head, cone, Vector3(0, 0.48, -0.02), m_cloth)
+			cone_mi.rotation_degrees = Vector3(-10, 0, 0)
+			_box(head, Vector3(0.2, 0.03, 0.04), Vector3(0, 0.3, 0.12), m_acc) # faixa
+			_box(head, Vector3(0.1, 0.07, 0.04), Vector3(0, 0.1, 0.11), m_cloth) # barba curta
 		Headgear.GOLEM:
 			# Cabeça de pedra: bloco com sobrancelha pesada, mandíbula e olhos brilhantes.
 			_box(head, Vector3(0.27, 0.22, 0.25), Vector3(0, 0.13, 0), m_skin)
@@ -664,8 +785,13 @@ func _build() -> void:
 		var kn := _pivot(th, "kn_" + n, Vector3(0, -THIGH_LEN, 0))
 		_sphere(kn, 0.07 * b, Vector3(0, 0, 0.035), m_acc, Vector3(1.0, 1.0, 0.8))
 		_capsule(kn, 0.072 * b, 0.4, Vector3(0, -0.21, 0), m_leather)
-		_box(kn, Vector3(0.115 * b, 0.08, 0.25), Vector3(0, -0.43, 0.05), m_leather)
-		_box(kn, Vector3(0.12 * b, 0.025, 0.26), Vector3(0, -0.47, 0.05), m_dark) # sola
+		var ft := Node3D.new() # tornozelo: o pé gira por conta própria para acompanhar o chão
+		ft.name = "ft_" + n
+		ft.position = Vector3(0, -SHIN_LEN, 0)
+		kn.add_child(ft)
+		_feet[n] = ft
+		_box(ft, Vector3(0.115 * b, 0.08, 0.25), Vector3(0, 0.02, 0.05), m_leather)
+		_box(ft, Vector3(0.12 * b, 0.025, 0.26), Vector3(0, -0.02, 0.05), m_dark) # sola
 
 
 ## Espada/clava na mão direita. O pulso ("wr_r") é uma junta animada: com rotação zero a lâmina
@@ -730,6 +856,19 @@ func _make_weapon() -> void:
 			socket.position = Vector3(0, HAMMER_GRIP, 0)
 			sword_base.position = Vector3(0, 0, 0.05) # varre o cabo inteiro (acerta também de perto)
 			sword_tip.position = Vector3(0, 0, 1.52)
+		Weapon.SPEAR:
+			# Lança: haste longa com ponta de aço em folha; alcance bem maior que a espada.
+			var shaft := _mat(Color(0.5, 0.36, 0.2), 0.8)
+			var head_steel := _mat(Color(0.82, 0.86, 0.92), 0.25)
+			head_steel.metallic = 0.8
+			_box(socket, Vector3(0.04, 0.04, 2.3), Vector3(0, 0, 0.85), shaft)
+			_box(socket, Vector3(0.06, 0.06, 0.1), Vector3(0, 0, -0.28), mat) # contrapeso
+			_box(socket, Vector3(0.012, 0.11, 0.34), Vector3(0, 0, 2.08), head_steel) # folha
+			_box(socket, Vector3(0.012, 0.05, 0.14), Vector3(0, 0, 2.3), head_steel) # ponta
+			_box(socket, Vector3(0.07, 0.07, 0.05), Vector3(0, 0, 1.9), mat) # colar
+			_box(socket, Vector3(0.012, 0.2, 0.03), Vector3(0, 0, 1.9), mat) # aletas
+			sword_base.position = Vector3(0, 0, 0.9)
+			sword_tip.position = Vector3(0, 0, 2.35)
 		Weapon.STAFF:
 			# Cajado do sacerdote: haste com um cristal brilhante no topo.
 			var wood := _mat(Color(0.5, 0.38, 0.22), 0.8)
@@ -803,6 +942,29 @@ func _build_offhand() -> void:
 			_build_orb(_hand_l)
 		Offhand.SHIELD:
 			_build_shield(_joints["el_l"])
+		Offhand.CROSSBOW:
+			_build_crossbow(_hand_l)
+
+
+## Besta na mão esquerda, apontando pela linha do antebraço (-Y da mão = frente quando o braço
+## estica). `offhand_tip` fica na boca do canal, de onde saem os virotes.
+func _build_crossbow(hand: Node3D) -> void:
+	var holder := Node3D.new()
+	holder.name = "OffhandSocket"
+	holder.position = Vector3(0, -0.02, 0.0)
+	hand.add_child(holder)
+	var wood := _mat(Color(0.4, 0.27, 0.15), 0.8)
+	var iron := _mat(Color(0.55, 0.57, 0.62), 0.35)
+	iron.metallic = 0.7
+	# Besta de mão: pequena, tipo pistola — cabo, coronha curta, arco estreito.
+	_box(holder, Vector3(0.05, 0.3, 0.06), Vector3(0, -0.1, 0.0), wood) # coronha
+	_box(holder, Vector3(0.03, 0.22, 0.02), Vector3(0, -0.14, 0.04), iron) # trilho
+	_box(holder, Vector3(0.3, 0.03, 0.03), Vector3(0, -0.22, 0.01), iron) # arco
+	_box(holder, Vector3(0.26, 0.008, 0.008), Vector3(0, -0.19, 0.02), _mat(Color(0.9, 0.9, 0.85), 0.5)) # corda
+	_box(holder, Vector3(0.06, 0.07, 0.09), Vector3(0, 0.02, -0.02), wood) # cabo
+	offhand_tip = Marker3D.new()
+	offhand_tip.position = Vector3(0, -0.26, 0.04)
+	holder.add_child(offhand_tip)
 
 
 ## Escudo redondo preso ao antebraço esquerdo. A face aponta para o -Z do antebraço:
