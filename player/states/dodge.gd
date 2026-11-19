@@ -1,9 +1,13 @@
 extends PlayerState
 ## Esquiva com i-frames. Sem input, dá um passo para trás.
 
-@export var dodge_speed := 14.0
-@export var duration := 0.38
-@export var iframe_time := 0.26
+## Rolamento de captura de movimento (Mixamo): 0,6 s deixa o giro legível. Velocidade menor que antes
+## (14 m/s em 0,38 s) para cobrir a mesma distância (~2,8 m).
+@export var dodge_speed := 9.0
+@export var duration := 0.6
+@export var iframe_time := 0.34
+## A partir de quando um ataque cancela o fim da esquiva (s).
+@export var attack_cancel_time := 0.32
 @export var cooldown := 0.5
 
 var _t := 0.0
@@ -41,12 +45,12 @@ func physics_update(delta: float) -> void:
 	if not p.is_on_floor():
 		p.apply_gravity(delta)
 
-	p.rig.set_dodge(_t / duration)
+	p.rig.set_dodge(_t / duration, _dir)
 	if _t >= iframe_time:
 		p.health.invulnerable = false
 
 	# Cancel da recuperação da esquiva em ataque.
-	if _t >= duration * 0.6:
+	if _t >= attack_cancel_time:
 		if p.consume(&"attack"):
 			p.start_attack()
 			return

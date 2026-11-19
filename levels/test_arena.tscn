@@ -10,9 +10,11 @@
 [ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="8"]
 
 [sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
-sky_top_color = Color(0.08, 0.1, 0.2, 1)
-sky_horizon_color = Color(0.25, 0.22, 0.3, 1)
-ground_horizon_color = Color(0.25, 0.22, 0.3, 1)
+sky_top_color = Color(0.16, 0.2, 0.34, 1)
+sky_horizon_color = Color(0.58, 0.46, 0.42, 1)
+ground_bottom_color = Color(0.12, 0.11, 0.12, 1)
+ground_horizon_color = Color(0.45, 0.38, 0.36, 1)
+sun_angle_max = 20.0
 
 [sub_resource type="Sky" id="Sky_1"]
 sky_material = SubResource("Sky_mat")
@@ -21,9 +23,25 @@ sky_material = SubResource("Sky_mat")
 background_mode = 2
 sky = SubResource("Sky_1")
 ambient_light_source = 3
-ambient_light_color = Color(0.4, 0.4, 0.55, 1)
+ambient_light_sky_contribution = 0.85
+ambient_light_energy = 0.7
+reflected_light_source = 2
+tonemap_mode = 4
+tonemap_exposure = 1.05
+ssao_enabled = true
+ssao_radius = 0.8
+ssao_intensity = 1.6
+ssao_power = 1.4
+glow_enabled = true
+glow_intensity = 0.45
+glow_bloom = 0.04
+glow_blend_mode = 1
 fog_enabled = true
-fog_light_color = Color(0.2, 0.2, 0.3, 1)
+fog_light_color = Color(0.36, 0.32, 0.36, 1)
+fog_density = 0.004
+adjustment_enabled = true
+adjustment_contrast = 1.05
+adjustment_saturation = 1.05
 
 [sub_resource type="StandardMaterial3D" id="Mat_floor"]
 albedo_color = Color(0.35, 0.35, 0.38, 1)
@@ -37,9 +55,18 @@ albedo_color = Color(0.5, 0.45, 0.4, 1)
 environment = SubResource("Env_1")
 
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=602784243]
-transform = Transform3D(1, 0, 0, 0, 0.643, 0.766, 0, -0.766, 0.643, 0, 10, 0)
-light_color = Color(0.8, 0.8, 1, 1)
+transform = Transform3D(0.8660, -0.4415, 0.2347, 0.0000, 0.4695, 0.8829, -0.5000, -0.7647, 0.4066, 0, 10, 0)
+light_color = Color(1, 0.92, 0.8, 1)
+light_energy = 1.6
 shadow_enabled = true
+shadow_blur = 1.5
+directional_shadow_max_distance = 40.0
+
+[node name="RimLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.9397, 0.1445, -0.3100, 0.0000, 0.9063, 0.4226, 0.3420, 0.3971, -0.8517, 0, 10, 0)
+light_color = Color(0.55, 0.66, 1, 1)
+light_energy = 0.8
+light_specular = 0.7
 
 [node name="Floor" type="CSGBox3D" parent="." unique_id=899118723]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)

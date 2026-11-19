@@ -51,6 +51,14 @@ const HOLD := {
 	"hm_rising": 0.08, "hm_plunge": 0.3, "hm_art_slam": 0.3,
 }
 
+## Fluidez dos golpes (não muda os tempos: o dano continua no mesmo quadro).
+## Antecipação: fração do movimento da preparação feita "ao contrário" no começo dela.
+const ANTICIPATION := 0.15
+## Peso no impacto: quanto o tronco entra no golpe e o corpo afunda no meio do movimento (0..1).
+const ARC_AMOUNT := 1.0
+## Continuação: quanto passa da pose de continuação antes de voltar (golpes leves).
+const FOLLOW_OVERSHOOT := 0.18
+
 ## Golpes cuja preparação segura com tremor de esforço.
 const CHARGE_SHAKE := {"hm_charge": true, "hm_smash": true}
 
@@ -823,6 +831,28 @@ static func _variant(base: Dictionary, over: Dictionary) -> Dictionary:
 	return out
 
 
+## Mistura com o quadril na frente e o pulso por último, sem easing extra (f já vem suavizado).
+## lag_scale < 1 deixa a cascata mais curta que a do impacto.
+static func mix_lead(a: Dictionary, b: Dictionary, f: float, lag_scale := 1.0) -> Dictionary:
+	var out := {}
+	for j in JOINTS:
+		var lag: float = float(LAG.get(j, 0.1)) * lag_scale
+		var uj := clampf((f - lag) / maxf(1.0 - lag, 0.001), 0.0, 1.0)
+		var va: Vector3 = a.get(j, Vector3.ZERO)
+		var vb: Vector3 = b.get(j, Vector3.ZERO)
+		out[j] = va.lerp(vb, uj)
+	return out
+
+
+## Ease-out que passa do alvo (overshoot) e volta; overshoot 0 = ease-out cúbico.
+static func _ease_out_back(u: float, overshoot: float) -> float:
+	var x := clampf(u, 0.0, 1.0)
+	if overshoot <= 0.0:
+		return _ease_out(x)
+	var c := overshoot * 10.0
+	return 1.0 + (c + 1.0) * pow(x - 1.0, 3.0) + c * pow(x - 1.0, 2.0)
+
+
 static func _ease_out(u: float) -> float:
 	return 1.0 - pow(1.0 - clampf(u, 0.0, 1.0), 3.0)
 
@@ -916,7 +946,16 @@ static func attack(anim: String, startup: float, active: float, recovery: float,
 			# Pesado: acelera devagar, vence o peso e recua um pouco além da preparação (carga).
 			f = _ease_in_out(u_wind)
 			f *= 1.0 + 0.12 * w * sin(u_wind * PI)
-		var pose := mix(origin, windup, f)
+		# O quadril puxa e o braço/arma vêm atrasados (cascata, como no impacto, mais suave).
+		var pose := mix_lead(origin, windup, f, 0.55)
+		# Antecipação: no começo da preparação o corpo dá um pequeno movimento contrário (tronco gira
+		# um pouco para o lado oposto e os joelhos cedem) antes de carregar. Mais forte nos pesados.
+		var ant := ANTICIPATION * (0.5 + w) * sin(clampf(u_wind / 0.35, 0.0, 1.0) * PI)
+		if ant > 0.0:
+			for j in ["spine", "hips", "sh_r", "el_r", "wr_r"]:
+				var d: Vector3 = (windup[j] as Vector3) - (origin[j] as Vector3)
+				pose[j] = (pose[j] as Vector3) - d * ant
+			pose["root"] = (pose["root"] as Vector3) + Vector3(0, -0.03 * ant / ANTICIPATION * 0.5, 0)
 		# Pesados: o corpo afunda e se enrola um pouco mais no fim da preparação (carregando força).
 		if w > 0.0 and u_wind > 0.5:
 			var coil := (u_wind - 0.5) / 0.5 * w
@@ -931,14 +970,21 @@ static func attack(anim: String, startup: float, active: float, recovery: float,
 		return pose
 	if t < startup + active: # impacto: cascata do quadril ao pulso, acelerando mais nos pesados
 		var u_hit := (t - startup) / maxf(active, 0.001)
-		return mix_lagged(windup, strike, u_hit, 1.0 + w * 1.6)
+		var hit_pose := mix_lagged(windup, strike, u_hit, 1.0 + w * 1.6)
+		# Peso no meio do golpe: o tronco entra no movimento e o corpo afunda; nas pontas do golpe
+		# volta às poses-chave. (Dobrar o cotovelo aqui achatava o arco da lâmina: medido e descartado.)
+		var arc := sin(clampf(u_hit, 0.0, 1.0) * PI) * ARC_AMOUNT
+		hit_pose["spine"] = (hit_pose["spine"] as Vector3) + Vector3(6.0 * arc, 0, 0)
+		hit_pose["root"] = (hit_pose["root"] as Vector3) + Vector3(0, -0.035 * (0.5 + w) * arc, 0)
+		return hit_pose
 	# recuperação: follow-through, (pesados) segura cravado, depois volta à guarda
 	var u_rec := clampf((t - startup - active) / maxf(recovery, 0.001), 0.0, 1.0)
 	var settle := lerpf(0.3, 0.16, w) # pesados "assentam" mais rápido (batida seca)
 	var out: Dictionary
 	if u_rec < settle:
 		var k := u_rec / settle
-		out = mix(strike, follow, _ease_out(k))
+		# Leves/médios passam um pouco da pose de continuação e voltam (o braço "chicoteia").
+		out = mix(strike, follow, _ease_out_back(k, FOLLOW_OVERSHOOT * (1.0 - w)))
 		# Afundamento do quadril após o impacto, proporcional ao peso do golpe.
 		out["root"] = (out["root"] as Vector3) + Vector3(0, -0.07 * w * sin(k * PI), 0)
 	elif u_rec < settle + hold:

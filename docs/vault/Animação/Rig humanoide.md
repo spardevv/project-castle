@@ -58,5 +58,52 @@ Testes: `tests/test_rig.gd`.
 `set_weapon` (espada, clava, martelo, cajado, arco), `set_offhand` (orbe, escudo). Marcadores `sword_base`/`sword_tip` alimentam a
 varredura da [[Hitbox, Hurtbox e Health|hitbox]] e o rastro (`WeaponTrail`).
 
+## Proporções (esboço de 8 cabeças)
+O esqueleto sai do esboço ![[esboco_proporcoes.svg]] via `BodyProportions` (`characters/body_proportions.gd`):
+alturas, comprimentos e larguras em **cabeças** (1 cabeça = 1,94 ÷ 8 = 0,2425 no rig). `HumanoidRig.proportions`
+(vazio = padrão) e `feminine` (ombros 0,78 e quadril 0,42 cabeça do centro; masculino 0,95 e 0,45).
+
+| Junta | Altura (cabeças) | | Segmento | Comprimento (cabeças) |
+|---|---|---|---|---|
+| pivô da cabeça | 7,15 | | braço | 1,5 |
+| pescoço | 6,75 | | antebraço | 1,25 |
+| ombro | 6,6 | | mão | 0,75 |
+| peito | 5,75 | | coxa | 2,0 |
+| lombar | 4,85 | | canela | 1,85 |
+| quadril / fêmur | 4,35 / 4,15 | | folga do joelho | 0,12 |
+| tornozelo | 0,3 | | | |
+
+`_apply_proportions()` converte para as medidas usadas no rig (`hip_y`, `upper_arm`, `forearm`, `thigh_len`, `shin_len`,
+`foot_h`…): construção, IK das pernas e das duas mãos, tubos do corpo, hitboxes e capa. A perna do rig é a do esboço
+menos `knee_slack` (o joelho fica levemente dobrado em pé e o IK tem margem no passo). O desenho da cabeça procedural
+desce `HEAD_GEO_Y` para o centro ficar a meia cabeça do topo.
+
 ## Hit-stop no rig
 `freeze()` encaixa a pose do impacto e segura ([[Game feel]]).
+
+
+## Corpo de um modelo 3D (`body_model`)
+O rig pode usar um **modelo .glb** (ex.: gerado por IA) no lugar do corpo procedural: `HumanoidRig.body_model` + o
+`.json` de articulações com o mesmo nome. Preparação no Blender: `tools/blender/rig_character.py`
+([[Polimento de personagem (Blender)]]).
+- As articulações do **tronco, ombros e quadris** vão para as posições do modelo (`MODEL_PLACED`); os **comprimentos de
+  braço e perna** e a altura do tornozelo vêm do `.json` (`_fit_lengths_to_model`), para a malha não esticar até o
+  cotovelo/joelho do esboço. O quadril desce a folga do joelho (`knee_slack`) para a perna não ficar travada reta.
+- Cada osso do modelo tem repouso = articulação do modelo, com os **membros girados da pose A para "reto para baixo"**
+  (a pose zero do rig). Por isso as mesmas poses e golpes valem para o modelo sem mudar nada.
+- O corpo procedural (pele, roupa, armadura, cabeça, mãos, pés, capa) fica escondido.
+- Ver nas folhas de pose: filtro `elfa:` no `pose_sheet` (ex.: `elfa:move_walk`). Teste: `tests/test_rig.gd`.
+
+### Ossos extras do modelo
+Além do tronco e membros, o esqueleto tem **punhos** (`wr_r` segue o pulso da arma: a mão dobra com o ângulo do golpe;
+`wr_l` balança com o arrasto da mão livre), **pontas dos pés** (`toe_l/r`: dobram ao desprender do chão) e uma
+**cadeia de cabelo** (`hair_1..3`).
+
+### Cabelo com física
+Quando o modelo traz `hair_chain` no `.json` (4 pontos da nuca à ponta, achados pelo `rig_character.py` no cabelo das
+costas), o rig simula a cadeia (Verlet, `_update_hair`):
+- **Inércia**: corre e o cabelo vai para trás; para e ele balança para frente e volta.
+- **Gravidade** e **mola** para a forma de repouso presa ao peito (raiz firme, ponta solta: `HAIR_STIFF`).
+- **Comprimento fixo** dos segmentos, **colisão com as costas** (eixo do tronco) e **limite de balanço** por segmento
+  (`HAIR_MAX_SWING`: 25°/40°/55°; sem isso, numa parada brusca o cabelo passava por cima dos ombros).
+Pesos: cabelo das costas segue a cadeia; mechas da frente seguem tronco e cabeça. Teste: `tests/test_rig.gd`.

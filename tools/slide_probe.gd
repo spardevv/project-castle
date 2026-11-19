@@ -50,9 +50,14 @@ func _process(_delta: float) -> void:
 	if _t > 1.0: # deixa a mola assentar
 		for n in ["l", "r"]:
 			var kn: Node3D = _rig._joints["kn_" + n]
-			var ankle := kn.global_transform * Vector3(0, -HumanoidRig.SHIN_LEN, 0)
-			var c := cos(_rig._phase)
-			var stance: bool = (c < -0.25) if n == "l" else (c > 0.25)
+			var ankle := kn.global_transform * Vector3(0, -_rig.shin_len, 0)
+			# Meio do apoio (fora dos instantes em que o pé ainda está assentando).
+			var stance: bool
+			if _rig._loco_main != null:
+				stance = _rig.foot_stance(0 if n == "l" else 1) and _rig._foot_w[0 if n == "l" else 1] >= 1.0
+			else:
+				var c := cos(_rig._phase)
+				stance = (c < -0.25) if n == "l" else (c > 0.25)
 			if _prev.has(n) and stance:
 				var d := Vector2(ankle.x - _prev[n].x, ankle.z - _prev[n].z).length() / DT
 				_sum += d

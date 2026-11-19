@@ -1,0 +1,38 @@
+{
+ "heads": 8,
+ "joints_heads": {
+  "topo": 8.0,
+  "queixo": 7.0,
+  "cabeca": 7.15,
+  "pescoco": 6.75,
+  "ombro": 6.6,
+  "peito": 5.75,
+  "coluna": 4.85,
+  "quadril": 4.35,
+  "coxa": 4.15,
+  "joelho": 2.15,
+  "tornozelo": 0.3,
+  "cotovelo": 5.1,
+  "punho": 3.85,
+  "dedos": 3.1
+ },
+ "widths_female": {
+  "ombro": 0.78,
+  "coxa": 0.42,
+  "cintura": 0.55,
+  "quadril_largura": 0.8,
+  "clav": 0.25
+ },
+ "widths_male": {
+  "ombro": 0.95,
+  "coxa": 0.45
+ },
+ "segments_heads": {
+  "braço (ombro→cotovelo)": 1.5,
+  "antebraço (cotovelo→punho)": 1.25,
+  "mão": 0.75,
+  "coxa (quadril→joelho)": 2.0,
+  "canela (joelho→tornozelo)": 1.85,
+  "pescoço": 0.35
+ }
+}

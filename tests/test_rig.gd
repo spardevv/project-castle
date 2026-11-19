@@ -74,3 +74,47 @@ func test_body_is_one_skinned_mesh_following_joints() -> void:
 	var i := skel.find_bone("el_r")
 	var joint_q: Quaternion = (skel.global_transform.affine_inverse() * rig._joints["el_r"].global_transform).basis.get_rotation_quaternion()
 	assert_true(skel.get_bone_pose_rotation(i).is_equal_approx(joint_q))
+
+
+func test_body_model_replaces_procedural_body() -> void:
+	var rig: HumanoidRig = RIG.instantiate()
+	rig.body_model = load("res://characters/models/elfa_rig.glb")
+	add_child_autofree(rig)
+	var joints := rig._load_model_joints()
+	assert_false(joints.is_empty(), "lê o .json de articulações")
+	# Ombro foi para a posição do modelo.
+	var sh_rest: Transform3D = rig._skel.get_bone_rest(rig._skel.find_bone("sh_l"))
+	assert_almost_eq(sh_rest.origin.x, (joints["sh_l"] as Vector3).x, 0.001)
+	# A malha do modelo está no esqueleto do rig, com um osso ligado por nome para cada bind.
+	var model_meshes := 0
+	for child in rig._skel.get_children():
+		if child is MeshInstance3D and (child as MeshInstance3D).skin != null:
+			model_meshes += 1
+			assert_gt((child as MeshInstance3D).skin.get_bind_count(), 10)
+	assert_gt(model_meshes, 0)
+	# Corpo procedural escondido; a arma continua visível.
+	var visible_weapon := false
+	for n in rig.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.get_parent() and String(mi.get_parent().name) == "WeaponSocket" and mi.visible:
+			visible_weapon = true
+	assert_true(visible_weapon, "arma continua visível")
+
+
+func test_model_hair_lags_behind_when_moving() -> void:
+	var rig: HumanoidRig = RIG.instantiate()
+	rig.body_model = load("res://characters/models/elfa_rig.glb")
+	add_child_autofree(rig)
+	assert_true(rig._hair_on, "a elfa tem cadeia de cabelo")
+	assert_eq(rig._skel.get_bone_count(), HumanoidRig.SKIN_BONES.size())
+	rig._reset_hair()
+	var rest_tip: Vector3 = rig._hair_p[3] - rig.global_position
+	# Anda rápido para a frente (+Z): a ponta do cabelo fica para trás.
+	for i in 10:
+		rig.global_position += Vector3(0, 0, 0.08)
+		rig._update_hair(1.0 / 60.0)
+	var tip: Vector3 = rig._hair_p[3] - rig.global_position
+	assert_lt(tip.z, rest_tip.z - 0.02, "ponta do cabelo atrasa em relação ao corpo")
+	# Comprimento dos segmentos se mantém.
+	for k in range(1, 4):
+		assert_almost_eq(rig._hair_p[k].distance_to(rig._hair_p[k - 1]), rig._hair_len[k - 1], 0.001)

@@ -37,3 +37,15 @@ arquivos-fonte:
 - Mola mais lenta e menos amortecida para o martelo.
 - `GameFeel.shake` e `rig.kick` em `attack.gd` ([[Game feel]]).
 Ver [[Martelo]] e [[Espada longa]].
+
+
+## Fluidez (`Poses.attack`)
+Sem mudar os tempos do golpe (o dano continua no mesmo quadro):
+- **Preparação em cascata** (`mix_lead`): o quadril puxa e braço/arma vêm atrasados, como no impacto, mais suave.
+- **Antecipação** (`ANTICIPATION` = 0,15): no começo da preparação o tronco, o ombro, o cotovelo e o pulso fazem um
+  pequeno movimento contrário e os joelhos cedem, depois carregam. Medido na ponta da espada: recua ~2 cm no `a1`,
+  ~6 cm no `a3`. Pesados mantêm a preparação lenta com sobrecarga.
+- **Peso no impacto** (`ARC_AMOUNT`): no meio do golpe o tronco entra no movimento e o corpo afunda.
+  Dobrar o cotovelo no meio do golpe foi testado e descartado: achatava o arco da lâmina (33% → 23% de curvatura no `a1`).
+- **Continuação com chicote** (`FOLLOW_OVERSHOOT` = 0,18): golpes leves/médios passam ~11% da pose de continuação e voltam
+  (`_ease_out_back`); pesados não (batida seca).

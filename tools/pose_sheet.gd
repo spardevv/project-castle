@@ -13,6 +13,7 @@ var _filter := ""
 var _hammer := false
 var _shield := false
 var _spear := false
+var _model: PackedScene
 
 
 func _ready() -> void:
@@ -27,6 +28,9 @@ func _ready() -> void:
 	if _filter.begins_with("hm:"): # "hm:move_" = folhas com o martelo
 		_filter = _filter.substr(3)
 		_hammer = true
+	if _filter.begins_with("elfa:"): # "elfa:move_" = corpo do modelo characters/models/elfa_rig.glb
+		_filter = _filter.substr(5)
+		_model = load("res://characters/models/elfa_rig.glb")
 	if _filter.begins_with("sp:"): # "sp:move_" = folhas com a lança
 		_filter = _filter.substr(3)
 		_spear = true
@@ -66,6 +70,7 @@ func _build_stage() -> void:
 		add_child(floor_mi)
 		for col in COLS:
 			var rig: HumanoidRig = RIG.instantiate()
+			rig.body_model = _model
 			rig.offhand = HumanoidRig.Offhand.SHIELD if _shield else HumanoidRig.Offhand.ORB
 			if _hammer or _filter.contains("hm_"):
 				rig.offhand = HumanoidRig.Offhand.NONE

@@ -14,7 +14,6 @@ enum Weapon { SWORD, CLUB, NONE, BOW, HAMMER, STAFF, SPEAR }
 enum Offhand { NONE, ORB, SHIELD, CROSSBOW }
 enum Headgear { HELMET, HOOD, HAIR, GOLEM, WIZARD }
 
-const HIP_Y := 0.95
 ## Distância do pomo do martelo até a mão (pegada no meio do cabo).
 const HAMMER_GRIP := 0.5
 ## Onde a mão esquerda segura a arma nos golpes de duas mãos (z no soquete da arma).
@@ -24,9 +23,6 @@ const GRIP2 := {0: -0.14, 4: 0.12, 6: 0.62} # Weapon.SWORD, Weapon.HAMMER, Weapo
 const SPEAR_REST_SHIFT := -0.75
 ## Juntas derivadas (não aparecem nas poses): peito, pescoço e clavículas dividem a rotação do
 ## tronco/cabeça/ombro e chegam com atraso próprio; a ponta do pé dobra ao desprender do chão.
-const CHEST_Y := 0.22
-const NECK_Y := 0.34
-const CLAV_X := 0.09
 const TOE_Z := 0.095
 ## Fração da rotação do tronco que fica no peito e da cabeça que fica no pescoço.
 const CHEST_SHARE := 0.5
@@ -43,10 +39,6 @@ const AIM_POSE := {
 }
 const AIM_BLEND_TIME := 0.12
 const NECK_SHARE := 0.35
-const THIGH_LEN := 0.45
-const SHIN_LEN := 0.45
-const FOOT_H := 0.06
-const LEG_REACH := THIGH_LEN + SHIN_LEN - 0.012
 ## Tempo para soltar/prender o pé da trava e queda máxima do quadril para alcançar o pé travado.
 const FOOT_BLEND := 0.1
 ## Quanto antes do toque o pé em balanço já é guiado ao ponto de pouso (s).
@@ -94,6 +86,40 @@ const LOOK_WEIGHT := {
 @export var rune_color := Color(0.3, 0.9, 1.0)
 ## Pés se ajustam ao chão (degraus, poses agachadas).
 @export var foot_ik := true
+@export_group("Modelo 3D")
+## Corpo vindo de um modelo .glb (ex.: gerado por IA e preparado por tools/blender/rig_character.py) no
+## lugar do corpo procedural. Precisa do .json de articulações ao lado (mesmo nome). As armas, o
+## escudo e o orbe continuam os do rig.
+@export var body_model: PackedScene
+@export_group("Animação")
+## Usa os clipes de captura de movimento (characters/anims/*.json, do Mixamo) quando existem: idle, walk,
+## jog, run, sprint, jump, fall, roll, dodge_back, dodge_left, dodge_right. Clipe ausente = pose procedural.
+@export var use_mocap := true
+@export_group("Proporções")
+## Esboço do corpo (alturas, comprimentos e larguras em cabeças). Vazio: padrão de 8 cabeças,
+## masculino ou feminino conforme `feminine`.
+@export var proportions: BodyProportions
+@export var feminine := false
+
+# Medidas do esqueleto (espaço do rig, antes da escala `height`), calculadas do esboço em _ready.
+var hip_y := 1.055
+var spine_y := 0.121 # quadril -> lombar
+var chest_y := 0.218 # lombar -> peito
+var neck_y := 0.243 # peito -> pescoço
+var head_y := 0.097 # pescoço -> cabeça
+var clav_y := 0.206 # peito -> ombros
+var clav_x := 0.061
+var shoulder_x := 0.23
+var upper_arm := 0.364
+var forearm := 0.303
+var hip_x := 0.109
+var hip_joint_y := -0.049
+var thigh_len := 0.473
+var shin_len := 0.437
+var foot_h := 0.073
+var leg_reach := 0.898
+## Desce o desenho da cabeça procedural para o centro ficar a meia cabeça do topo.
+const HEAD_GEO_Y := -0.055
 
 ## Pontos da lâmina (para o rastro). Ficam na mão direita.
 var sword_base: Marker3D
@@ -182,12 +208,24 @@ var _wrist_l := Vector3.ZERO # arrasto do pulso esquerdo (graus)
 var _wrist_l_vel := Vector3.ZERO
 var _exertion := 0.0 # 0..1: sobe com golpes/esquivas, decai em ~3 s (respiração ofegante)
 var _breath_phase := 0.0
+# Captura de movimento
+const LOCO_CLIPS: Array[String] = ["walk", "jog", "run", "sprint"]
+## Velocidade vertical do pulo do jogador (m/s): mapeia subida/descida nos marcadores do clipe "jump".
+const JUMP_VY_REF := 8.5
+var _clip_driven := false # pose deste quadro veio de clipe (mola mais firme)
+var _loco_w: Array = [] # [[AnimClip, peso], ...] dos ciclos de locomoção
+var _idle_w := 0.0
+var _loco_main: AnimClip # ciclo de maior peso: dá o contato dos pés
+var _extra_tgt: Dictionary = {} # juntas fora das poses (pulso esquerdo, pés) vindas do clipe
+var _extra_cur: Dictionary = {}
+var _dodge_dir := Vector3.ZERO # direção da esquiva no espaço do rig (ZERO = pose procedural)
 var _aim := 0.0 # 0..1: peso da camada de mira da besta
 var _aim_on := false
 
 
 func _ready() -> void:
 	scale = Vector3.ONE * height
+	_apply_proportions()
 	_build()
 	_cur = Poses.full({})
 	for j in Poses.JOINTS:
@@ -227,9 +265,16 @@ func set_aim(on: bool) -> void:
 	_aim_on = on
 
 
-func set_dodge(progress: float) -> void:
+## dir_world: direção da esquiva no mundo (escolhe rolamento à frente, passo para trás ou para os lados).
+func set_dodge(progress: float, dir_world := Vector3.ZERO) -> void:
 	_mode = Mode.DODGE
 	_progress = progress
+	if dir_world != Vector3.ZERO:
+		_dodge_dir = global_transform.basis.orthonormalized().inverse() * dir_world
+		_dodge_dir.y = 0.0
+		_dodge_dir = _dodge_dir.normalized()
+	elif progress <= 0.0:
+		_dodge_dir = Vector3.ZERO
 
 
 func set_guard(with_shield := false) -> void:
@@ -275,11 +320,12 @@ func set_charge(level: int) -> void:
 ## Aplica a pose-alvo atual imediatamente, sem suavização (usado por ferramentas de preview).
 func snap() -> void:
 	_aim = 1.0 if (_aim_on and _mode == Mode.LOCOMOTION) else 0.0
-	_cur = _compute_target(0.0).duplicate()
+	_cur = Poses.full(_compute_target(0.0)) # clipes não trazem todos os canais (ex.: yaw)
 	for j in Poses.JOINTS:
 		_vel[j] = Vector3.ZERO
 	_apply()
 	_two_hand_apply(0.0, true)
+	_reset_hair()
 	_update_skin()
 
 
@@ -321,10 +367,24 @@ func freeze(duration: float, shake_body := false) -> void:
 
 
 func _compute_target(delta: float) -> Dictionary:
+	_clip_driven = false
+	var tgt := _compute_target_inner()
+	# Juntas extras do clipe (pulso esquerdo, pés): suavizadas aqui (não passam pela mola das poses).
+	var k := 1.0 if delta <= 0.0 else 1.0 - exp(-18.0 * delta)
+	for j in ["wr_l", "ft_l", "ft_r"]:
+		var want: Vector3 = _extra_tgt.get(j, Vector3.ZERO) if _clip_driven else Vector3.ZERO
+		_extra_cur[j] = (_extra_cur.get(j, Vector3.ZERO) as Vector3).lerp(want, k)
+	return tgt
+
+
+func _compute_target_inner() -> Dictionary:
 	match _mode:
 		Mode.ATTACK:
 			return Poses.attack(_atk_anim, _atk.x, _atk.y, _atk.z, _atk.w, _atk_from)
 		Mode.DODGE:
+			var dp := _mocap_dodge()
+			if not dp.is_empty():
+				return dp
 			return Poses.dodge(_progress)
 		Mode.GUARD:
 			return Poses.guard(_time, _guard_shield)
@@ -338,6 +398,13 @@ func _compute_target(delta: float) -> Dictionary:
 			return Poses.knockdown(_progress, _down_dur)
 	# A fase do passo avança com a distância andada (em _track_motion), não com o tempo.
 	var pose := Poses.locomotion(_phase, _speed, _on_floor, _vy, _time, _carry_wrist(), weapon == Weapon.SPEAR)
+	var mc := _mocap_locomotion()
+	if not mc.is_empty():
+		# Braço da arma continua na pose de carregar (o clipe não tem arma); o resto vem da captura.
+		if weapon != Weapon.NONE:
+			for j in ["sh_r", "el_r", "wr_r"]:
+				mc[j] = pose[j]
+		pose = mc
 	if _aim > 0.0:
 		pose = pose.duplicate() # algumas poses vêm de cache
 		var k := smoothstep(0.0, 1.0, _aim)
@@ -381,6 +448,10 @@ func _process(delta: float) -> void:
 		var yaw: Vector3 = _cur["yaw"]
 		yaw.x = wrapf(yaw.x, -180.0, 180.0)
 		_cur["yaw"] = yaw
+	if _mode != Mode.DODGE: # rolamento termina com o corpo a 360°: volta para a faixa sem desenrolar
+		var pt: Vector3 = _cur["pitch"]
+		pt.x = wrapf(pt.x, -180.0, 180.0)
+		_cur["pitch"] = pt
 
 	_integrate(target, delta)
 	_update_secondary(delta)
@@ -388,13 +459,18 @@ func _process(delta: float) -> void:
 	_two_hand_apply(delta)
 	_update_cloth(delta)
 	_leg_ik(delta)
+	_update_hair(delta)
 	_update_skin()
 
 
 ## Juntas como molas amortecidas (Euler semi-implícito, subpassos para estabilidade).
 func _integrate(target: Dictionary, delta: float) -> void:
 	var sp: Vector2 = SPRING[_mode]
-	if _mode == Mode.ATTACK:
+	if _clip_driven:
+		# Captura de movimento: segue o clipe de perto, só tira os trancos. Esquivas tocam o clipe 3-5x mais
+		# rápido: mola bem firme (senão o rolamento termina atrasado, de cabeça para baixo).
+		sp = Vector2(75.0, 1.0) if _mode == Mode.DODGE else Vector2(38.0, 0.9)
+	elif _mode == Mode.ATTACK:
 		# Espada: mola mais firme e bem amortecida (fluida, sem tremer). Martelo: mais lenta e com
 		# folga (a massa passa um pouco do ponto e assenta). Outros: o padrão.
 		if weapon == Weapon.SWORD:
@@ -440,13 +516,21 @@ func _track_motion(delta: float) -> void:
 	_yaw_rate = lerpf(_yaw_rate, wrapf(yaw - _prev_yaw, -PI, PI) / delta, 1.0 - exp(-10.0 * delta))
 	_prev_yaw = yaw
 
+	_update_loco_weights()
 	if _mode == Mode.LOCOMOTION and _on_floor:
 		var hv := Vector2(v.x, v.z).length()
 		var run := clampf(inverse_lerp(2.5, 7.0, _speed), 0.0, 1.0)
 		# Um ciclo (2 passos) por 2 comprimentos de passo: o pé de apoio não desliza.
 		var step := Poses.step_length(run) * height
-		_phase_rate = TAU * hv / (2.0 * step)
 		_stride_half = 0.5 * step
+		if _loco_main != null:
+			step = 0.5 * _loco_cycle_dist() * height # passo do clipe (ciclo = 2 passos)
+			# Ponto de pouso medido no clipe (à frente do quadril no instante do toque).
+			var ta := 0.0
+			for e in _loco_w:
+				ta += (e[0] as AnimClip).touch_ahead * float(e[1])
+			_stride_half = maxf(ta, 0.02) * hip_y * height
+		_phase_rate = TAU * hv / (2.0 * step)
 		_phase += _phase_rate * delta
 	else:
 		_phase_rate = 0.0
@@ -537,7 +621,7 @@ func _update_secondary(delta: float) -> void:
 
 
 func _apply() -> void:
-	_hips.position = Vector3(0.0, HIP_Y + _land, 0.0) + (_cur["root"] as Vector3)
+	_hips.position = Vector3(0.0, hip_y + _land, 0.0) + (_cur["root"] as Vector3)
 	_body_root.rotation_degrees = Vector3((_cur["pitch"] as Vector3).x + _lean.x, (_cur["yaw"] as Vector3).x, _lean.y)
 	for j in ROT_JOINTS:
 		(_joints[j] as Node3D).rotation_degrees = _cur[j]
@@ -561,7 +645,7 @@ func _apply() -> void:
 	if _fingers.has("l"):
 		(_fingers["l"] as Node3D).rotation_degrees = Vector3(-75.0 * _finger_open.x, 0.0, 0.0)
 		(_fingers["r"] as Node3D).rotation_degrees = Vector3(-75.0 * _finger_open.y, 0.0, 0.0)
-		(_hands["l"] as Node3D).rotation_degrees = _wrist_l
+		(_hands["l"] as Node3D).rotation_degrees = _wrist_l + (_extra_cur.get("wr_l", Vector3.ZERO) as Vector3)
 	# Clavículas: sobem (gira em Z) com o braço erguido; um pouco também ao inspirar.
 	var inhale := maxf(sin(_breath_phase * TAU * 0.5), 0.0) * lerpf(0.6, 2.5, _exertion)
 	(_joints["clav_l"] as Node3D).rotation_degrees = Vector3(0, -_clav.x * 0.35, _clav.x + inhale)
@@ -596,8 +680,8 @@ func _two_hand_apply(delta: float, instant := false) -> void:
 	if _spear_body != null and is_instance_valid(_spear_body):
 		_spear_body.position.z = lerpf(SPEAR_REST_SHIFT, 0.0, smoothstep(0.0, 1.0, _two_hand))
 	# Escudo: de lado no antebraço (andar, atacar, parado); de frente só na guarda e na investida.
-	var forearm: Node3D = _joints["el_l"]
-	var shield := forearm.get_node_or_null("ShieldSocket") as Node3D
+	var forearm_l: Node3D = _joints["el_l"]
+	var shield := forearm_l.get_node_or_null("ShieldSocket") as Node3D
 	if shield != null:
 		var front := (_mode == Mode.GUARD and _guard_shield) or (_mode == Mode.ATTACK and _atk_anim == "bash")
 		var goal_f := 1.0 if front else 0.0
@@ -624,8 +708,8 @@ func _two_hand_apply(delta: float, instant := false) -> void:
 	var el: Node3D = _joints["el_l"]
 	var spine := sh.get_parent() as Node3D
 	var grip: Vector3 = spine.global_transform.affine_inverse() * (socket.global_transform * Vector3(0, 0, GRIP2[int(weapon)]))
-	var a := 0.3
-	var b := 0.29
+	var a := upper_arm
+	var b := forearm
 	var v := grip - sh.position
 	var d := clampf(v.length(), 0.12, a + b - 0.01)
 	var dir := v.normalized()
@@ -685,23 +769,44 @@ func _leg_ik(delta: float) -> void:
 		return
 	var space := get_world_3d().direct_space_state
 	var walking := _mode == Mode.LOCOMOTION and _on_floor and _speed > 0.4 and _phase_rate > 0.01
-	var c := cos(_phase)
 	var goals: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
+	# Tempo de prender/soltar o pé: no clipe, proporcional ao apoio (correndo o pé fica ~0,15 s no chão;
+	# com 0,1 s para prender e 0,1 s para soltar a trava nunca chegaria a segurar o pé de verdade).
+	var blend := FOOT_BLEND
+	var pre := PRE_PLANT
+	if walking and _loco_main != null:
+		var stance_t := _loco_main.stance_frac() * TAU / maxf(_phase_rate, 0.01)
+		blend = clampf(stance_t * 0.22, 0.025, FOOT_BLEND)
+		pre = clampf(stance_t * 0.22, 0.025, PRE_PLANT)
 	var need := 0.0
 	# 1) alvo de cada tornozelo (mundo) e quanto o quadril precisa descer para alcançá-lo
 	for i in 2:
 		var names := ["l", "r"]
 		var th: Node3D = _joints["th_" + names[i]]
 		var kn: Node3D = _joints["kn_" + names[i]]
-		var ankle := kn.global_transform * Vector3(0, -SHIN_LEN, 0)
-		var stance := walking and ((c < 0.0) if i == 0 else (c > 0.0))
+		var ankle := kn.global_transform * Vector3(0, -shin_len, 0)
+		var stance := walking and foot_stance(i)
 		var plant := stance
 		if walking and not stance:
 			# Balanço: prevê o ponto de toque; perto do toque o pé já é guiado até lá.
-			var rem := fposmod((PI * 0.5 if i == 0 else PI * 1.5) - _phase, TAU) / _phase_rate
+			var rem := _touchdown_in(i)
 			_foot_lock[i] = _predict_touchdown(1.0 if i == 0 else -1.0, rem)
-			plant = rem < PRE_PLANT
-		_foot_w[i] = move_toward(_foot_w[i], 1.0 if plant else 0.0, delta / FOOT_BLEND)
+			plant = rem < pre
+		elif stance and _loco_main != null:
+			# Clipe: começa a soltar antes do pé sair do chão (a soltura leva FOOT_BLEND); senão o corpo
+			# passa do alcance da perna, ela estica toda e depois pula para a pose do clipe.
+			plant = _liftoff_in(i) > blend
+		if plant and _foot_w[i] > 0.0:
+			# Trava longe demais do quadril (curva, mudança de velocidade): solta em vez de esticar a perna.
+			# Alcance real: com o quadril descendo o máximo permitido, quanto a perna chega na horizontal.
+			var hip_w := th.global_position
+			var lk: Vector3 = _foot_lock[i]
+			var reach := leg_reach * height
+			var h := maxf(hip_w.y - lk.y - MAX_PELVIS_DROP * height, 0.0)
+			var max_horiz := sqrt(maxf(reach * reach - h * h, 0.0))
+			if Vector2(lk.x - hip_w.x, lk.z - hip_w.z).length() > max_horiz * 0.97:
+				plant = false
+		_foot_w[i] = move_toward(_foot_w[i], 1.0 if plant else 0.0, delta / blend)
 		var goal := ankle
 		var w: float = smoothstep(0.0, 1.0, _foot_w[i])
 		if w > 0.0:
@@ -709,13 +814,13 @@ func _leg_ik(delta: float) -> void:
 			var lq := PhysicsRayQueryParameters3D.create(lock + Vector3.UP * 0.5 * height, lock - Vector3.UP * 0.35 * height, 1)
 			var lh := space.intersect_ray(lq)
 			if not lh.is_empty():
-				lock.y = (lh["position"] as Vector3).y + FOOT_H * height
+				lock.y = (lh["position"] as Vector3).y + foot_h * height
 				_foot_lock[i] = lock
 				goal = ankle.lerp(lock, w)
 				var inv := (th.get_parent() as Node3D).global_transform.affine_inverse()
 				var rel := inv * goal - th.position
 				var horiz := Vector2(rel.x, rel.z).length()
-				var vert := sqrt(maxf(LEG_REACH * LEG_REACH - horiz * horiz, 0.0))
+				var vert := sqrt(maxf(leg_reach * leg_reach - horiz * horiz, 0.0))
 				need = maxf(need, -rel.y - vert)
 		goals[i] = goal
 	# 2) quadril desce suavemente (limitado: além disso o pé fica um pouco "curto" e só levanta)
@@ -730,13 +835,13 @@ func _leg_ik(delta: float) -> void:
 		var goal := goals[i]
 		if _foot_w[i] <= 0.0:
 			# Sem trava: a pose manda, mas o pé nunca fica abaixo do chão.
-			var ankle := kn.global_transform * Vector3(0, -SHIN_LEN, 0)
+			var ankle := kn.global_transform * Vector3(0, -shin_len, 0)
 			var up := Vector3.UP * height
 			var q := PhysicsRayQueryParameters3D.create(ankle + up * 0.6, ankle - up * 0.25, 1)
 			var hit := space.intersect_ray(q)
 			if hit.is_empty():
 				continue
-			var min_y: float = (hit["position"] as Vector3).y + FOOT_H * height
+			var min_y: float = (hit["position"] as Vector3).y + foot_h * height
 			if ankle.y >= min_y:
 				continue
 			goal = Vector3(ankle.x, min_y, ankle.z)
@@ -752,8 +857,17 @@ func _orient_feet(walking: bool) -> void:
 		var ft: Node3D = _feet[n]
 		var toe: Node3D = _toes[n]
 		var w: float = smoothstep(0.0, 1.0, _foot_w[i])
+		var clip_ft: Vector3 = _extra_cur.get("ft_" + n, Vector3.ZERO)
 		if w <= 0.0:
-			ft.rotation = Vector3.ZERO
+			ft.rotation_degrees = clip_ft
+			toe.rotation = Vector3.ZERO
+			continue
+		if _loco_main != null:
+			# Clipe: no apoio o pé fica plano no chão; soltando, volta à rotação do clipe.
+			var kb0 := (_joints["kn_" + n] as Node3D).global_transform.basis.orthonormalized()
+			var flat_q := (kb0.inverse() * flat).get_rotation_quaternion()
+			var clip_q := Quaternion.from_euler(clip_ft * (PI / 180.0))
+			ft.basis = Basis(clip_q.slerp(flat_q, w))
 			toe.rotation = Vector3.ZERO
 			continue
 		var start := PI * 0.5 if i == 0 else PI * 1.5
@@ -772,13 +886,188 @@ func _orient_feet(walking: bool) -> void:
 		ft.basis = Basis(Quaternion.IDENTITY.slerp(local_q, w))
 
 
+# --- Captura de movimento -------------------------------------------------------------
+
+func _clip(clip_name: String) -> AnimClip:
+	return AnimClip.get_clip(clip_name) if use_mocap else null
+
+
+## Pé i (0 = esquerdo) apoiado no chão agora (ciclo de passos).
+func foot_stance(i: int) -> bool:
+	if _loco_main != null:
+		# Média dos clipes misturados: ao mudar de velocidade o clipe principal troca, e cada um tem seu
+		# tempo de apoio; só o principal faria o pé prender/soltar de repente.
+		var c_sum := 0.0
+		for e in _loco_w:
+			var clip: AnimClip = e[0]
+			c_sum += clip.contact(clip.gait_u(_phase), i) * float(e[1])
+		return c_sum > 0.5
+	var c := cos(_phase)
+	return (c < 0.0) if i == 0 else (c > 0.0)
+
+
+## Segundos até o pé i sair do chão (só clipes; 0 se já está no ar).
+func _liftoff_in(i: int) -> float:
+	if _loco_main == null:
+		return 999.0
+	var rate := maxf(_phase_rate, 0.01)
+	var u := _loco_main.gait_u(_phase)
+	return _loco_main.until_liftoff(u, i) / _loco_main.cycle_span(u) * TAU / rate
+
+
+## Segundos até o pé i tocar o chão.
+func _touchdown_in(i: int) -> float:
+	var rate := maxf(_phase_rate, 0.01)
+	if _loco_main != null:
+		var u := _loco_main.gait_u(_phase)
+		return _loco_main.until_contact(u, i) / _loco_main.cycle_span(u) * TAU / rate
+	return fposmod((PI * 0.5 if i == 0 else PI * 1.5) - _phase, TAU) / rate
+
+
+## Pesos dos ciclos pela velocidade: cada clipe tem sua velocidade natural (convertida para este corpo);
+## entre dois clipes mistura, abaixo do primeiro mistura com o idle.
+func _update_loco_weights() -> void:
+	_loco_w.clear()
+	_idle_w = 0.0
+	_loco_main = null
+	if not use_mocap or _mode != Mode.LOCOMOTION or not _on_floor:
+		return
+	var list: Array = []
+	for nm in LOCO_CLIPS:
+		var c := _clip(nm)
+		if c != null and c.speed > 0.01 and c.cycle_dist > 0.01:
+			list.append([c, c.speed * hip_y * height])
+	if list.is_empty():
+		return
+	list.sort_custom(func(a, b): return a[1] < b[1])
+	var v := _speed
+	var idle := _clip("idle")
+	if v <= list[0][1]:
+		_loco_w = [[list[0][0], 1.0]]
+		if idle != null:
+			_idle_w = 1.0 - smoothstep(0.15, maxf(list[0][1] * 0.6, 0.5), v)
+	elif v >= list[-1][1]:
+		_loco_w = [[list[-1][0], 1.0]]
+	else:
+		for k in list.size() - 1:
+			if v <= list[k + 1][1]:
+				var t := inverse_lerp(list[k][1], list[k + 1][1], v)
+				_loco_w = [[list[k][0], 1.0 - t], [list[k + 1][0], t]]
+				break
+	var best := 0.0
+	for e in _loco_w:
+		if e[1] > best:
+			best = e[1]
+			_loco_main = e[0]
+	if _speed < 0.4:
+		_loco_main = null # parado: sem trava de passo
+
+
+func _loco_cycle_dist() -> float:
+	var d := 0.0
+	for e in _loco_w:
+		d += (e[0] as AnimClip).cycle_dist * float(e[1])
+	return maxf(d * hip_y, 0.05)
+
+
+## Clipe -> pose do rig (raiz em metros do rig) e juntas extras guardadas em _extra_tgt.
+func _from_clip(c: AnimClip, u: float) -> Dictionary:
+	var p := c.sample(u)
+	p["root"] = (p["root"] as Vector3) * hip_y
+	return p
+
+
+static func _mix_pose(a: Dictionary, b: Dictionary, w: float) -> Dictionary:
+	if w <= 0.0:
+		return a
+	if w >= 1.0:
+		return b
+	var out := a.duplicate()
+	for j in b:
+		out[j] = (a.get(j, Vector3.ZERO) as Vector3).lerp(b[j], w)
+	return out
+
+
+func _take_extra(p: Dictionary) -> void:
+	_extra_tgt = {}
+	for j in ["wr_l", "ft_l", "ft_r"]:
+		if p.has(j):
+			_extra_tgt[j] = p[j]
+	_clip_driven = true
+
+
+## Andar/correr/parado/pulo pelos clipes; vazio = usar a pose procedural.
+func _mocap_locomotion() -> Dictionary:
+	if not use_mocap:
+		return {}
+	if not _on_floor:
+		var jump := _clip("jump")
+		if jump == null:
+			return {}
+		var m := jump.markers
+		var tk := float(m.get("takeoff", 0.3))
+		var ap := float(m.get("apex", 0.5))
+		var ld := float(m.get("land", 0.75))
+		var u: float
+		if _vy > 0.0:
+			u = lerpf(tk, ap, 1.0 - clampf(_vy / JUMP_VY_REF, 0.0, 1.0))
+		else:
+			u = lerpf(ap, lerpf(ap, ld, 0.85), clampf(-_vy / JUMP_VY_REF, 0.0, 1.0))
+		var p := _from_clip(jump, u)
+		var fall := _clip("fall")
+		if fall != null and _vy < -JUMP_VY_REF * 0.8:
+			var kf := clampf((-_vy - JUMP_VY_REF * 0.8) / (JUMP_VY_REF * 0.6), 0.0, 1.0)
+			p = _mix_pose(p, _from_clip(fall, _time / maxf(fall.duration(), 0.1)), kf)
+		p["root"] = Vector3.ZERO # no ar quem move o corpo é a física
+		_take_extra(p)
+		return p
+	var idle := _clip("idle")
+	if _loco_w.is_empty():
+		if idle == null or _speed >= 0.4:
+			return {}
+		var ip := _from_clip(idle, _time / maxf(idle.duration(), 0.1))
+		_take_extra(ip)
+		return ip
+	var pose := {}
+	var acc := 0.0
+	for e in _loco_w:
+		var w: float = e[1]
+		if w <= 0.0:
+			continue
+		var cp := _from_clip(e[0], (e[0] as AnimClip).gait_u(_phase))
+		acc += w
+		pose = cp if pose.is_empty() else _mix_pose(pose, cp, w / acc)
+	if idle != null and _idle_w > 0.0:
+		pose = _mix_pose(pose, _from_clip(idle, _time / maxf(idle.duration(), 0.1)), _idle_w)
+	_take_extra(pose)
+	return pose
+
+
+## Esquiva pelo clipe da direção (no espaço do rig: +Z frente, +X esquerda). Vazio = pose procedural.
+func _mocap_dodge() -> Dictionary:
+	if not use_mocap or _dodge_dir == Vector3.ZERO:
+		return {}
+	var nm := "roll"
+	if _dodge_dir.z < -0.5:
+		nm = "dodge_back"
+	elif absf(_dodge_dir.x) > 0.5:
+		nm = "dodge_left" if _dodge_dir.x > 0.0 else "dodge_right"
+	var c := _clip(nm)
+	if c == null:
+		return {}
+	var u := lerpf(float(c.markers.get("start", 0.0)), float(c.markers.get("end", 1.0)), clampf(_progress, 0.0, 1.0))
+	var p := _from_clip(c, u)
+	_take_extra(p)
+	return p
+
+
 ## Onde o pé do lado `side` (+1 esquerdo, -1 direito) vai pousar daqui a `time` s: meio passo à
 ## frente do quadril, na direção do movimento.
 func _predict_touchdown(side: float, time: float) -> Vector3:
 	var b := global_transform.basis.orthonormalized()
 	var hv := Vector3(_world_vel.x, 0.0, _world_vel.z)
 	var dir := hv.normalized() if hv.length() > 0.1 else b.z
-	var p := global_position + b.x * (side * 0.11 * bulk * height) + hv * time
+	var p := global_position + b.x * (side * hip_x * bulk * height) + hv * time
 	return p + dir * _stride_half
 
 
@@ -786,13 +1075,15 @@ func _predict_touchdown(side: float, time: float) -> Vector3:
 func _solve_leg(th: Node3D, kn: Node3D, goal: Vector3) -> void:
 	var parent := th.get_parent() as Node3D
 	var v := parent.global_transform.affine_inverse() * goal - th.position
-	var dist := clampf(v.length(), 0.1, THIGH_LEN + SHIN_LEN - 0.001)
+	var dist := clampf(v.length(), 0.1, thigh_len + shin_len - 0.001)
 	var u := v.normalized()
 	var fwd := Vector3(0, 0, 1)
 	var f0 := fwd - u * fwd.dot(u)
 	f0 = f0.normalized() if f0.length() > 0.05 else Vector3.UP
-	var knee_int := acos(clampf((THIGH_LEN * THIGH_LEN + SHIN_LEN * SHIN_LEN - dist * dist) / (2.0 * THIGH_LEN * SHIN_LEN), -1.0, 1.0))
-	var alpha := acos(clampf((THIGH_LEN * THIGH_LEN + dist * dist - SHIN_LEN * SHIN_LEN) / (2.0 * THIGH_LEN * dist), -1.0, 1.0))
+	var tl := thigh_len
+	var sl := shin_len
+	var knee_int := acos(clampf((tl * tl + sl * sl - dist * dist) / (2.0 * tl * sl), -1.0, 1.0))
+	var alpha := acos(clampf((tl * tl + dist * dist - sl * sl) / (2.0 * tl * dist), -1.0, 1.0))
 	var d := (u * cos(alpha) + f0 * sin(alpha)).normalized() # direção da coxa
 	var f := (fwd - d * fwd.dot(d)).normalized()
 	var x := -(d.cross(f)).normalized() # eixo de dobra do joelho
@@ -802,6 +1093,29 @@ func _solve_leg(th: Node3D, kn: Node3D, goal: Vector3) -> void:
 
 
 # --- Construção do corpo ----------------------------------------------------
+
+## Converte o esboço (cabeças) nas medidas do esqueleto.
+func _apply_proportions() -> void:
+	var pr := proportions
+	if pr == null:
+		pr = BodyProportions.female() if feminine else BodyProportions.male()
+	hip_y = pr.u(pr.pelvis)
+	spine_y = pr.u(pr.spine - pr.pelvis)
+	chest_y = pr.u(pr.chest - pr.spine)
+	neck_y = pr.u(pr.neck - pr.chest)
+	head_y = pr.u(pr.head - pr.neck)
+	clav_y = pr.u(pr.shoulder - pr.chest)
+	clav_x = pr.u(pr.clavicle_half)
+	shoulder_x = pr.u(pr.shoulder_half)
+	upper_arm = pr.u(pr.upper_arm)
+	forearm = pr.u(pr.forearm)
+	hip_x = pr.u(pr.hip_joint_half)
+	hip_joint_y = pr.u(pr.hip_joint - pr.pelvis)
+	# Folga do joelho: em pé com a pose zero a perna fica levemente dobrada (não trava reta).
+	thigh_len = pr.u(pr.thigh - pr.knee_slack * 0.5)
+	shin_len = pr.u(pr.shin - pr.knee_slack * 0.5)
+	foot_h = pr.u(pr.ankle)
+	leg_reach = thigh_len + shin_len - 0.012
 
 func _build() -> void:
 	var m_skin := _mat(skin, 0.7)
@@ -819,7 +1133,7 @@ func _build() -> void:
 	add_child(_body_root)
 
 	# Quadril, cinto e tabardo
-	_hips = _pivot(_body_root, "hips", Vector3(0, HIP_Y, 0))
+	_hips = _pivot(_body_root, "hips", Vector3(0, hip_y, 0))
 	_soft_box(_hips, Vector3(0.41 * b, 0.07, 0.28 * b), Vector3(0, 0.08, 0), m_leather, 0.3) # cinto
 	_soft_box(_hips, Vector3(0.08, 0.06, 0.03), Vector3(0, 0.08, 0.145 * b), m_acc, 0.2) # fivela
 	if tabard:
@@ -828,11 +1142,12 @@ func _build() -> void:
 
 	# Tronco em duas juntas: "spine" (abdômen) e "chest" (peito), que divide a rotação do tronco e
 	# chega com atraso (o peito "segue" a cintura). Pescoço é uma junta própria entre peito e cabeça.
-	var spine := _pivot(_hips, "spine", Vector3(0, 0.08, 0))
-	var chest := _pivot(spine, "chest", Vector3(0, CHEST_Y, 0))
+	var spine := _pivot(_hips, "spine", Vector3(0, spine_y, 0))
+	var chest := _pivot(spine, "chest", Vector3(0, chest_y, 0))
+	var sw := shoulder_x / 0.3 # largura dos ombros relativa ao desenho original
 	_soft_box(chest, Vector3(0.42 * b, 0.27, 0.07), Vector3(0, 0.15, 0.125 * b), m_acc, 0.35) # peitoral
-	_soft_box(chest, Vector3(0.54 * b, 0.1, 0.27 * b), Vector3(0, 0.3, 0), m_acc, 0.4) # ombros
-	var neck := _pivot(chest, "neck", Vector3(0, NECK_Y, 0))
+	_soft_box(chest, Vector3(0.54 * b * sw, 0.1, 0.27 * b), Vector3(0, clav_y + 0.02, 0), m_acc, 0.4) # ombros
+	var neck := _pivot(chest, "neck", Vector3(0, neck_y, 0))
 	if runes:
 		var m_rune := _rune_material()
 		_box(chest, Vector3(0.05, 0.22, 0.02), Vector3(0, 0.14, 0.165 * b), m_rune)
@@ -847,7 +1162,11 @@ func _build() -> void:
 			_box(quiver, Vector3(0.02, 0.18, 0.02), Vector3(-0.03 + k * 0.03, 0.32, 0), m_cloth)
 
 	# Cabeça e o que vai nela
-	var head := _pivot(neck, "head", Vector3(0, 0.62 - CHEST_Y - NECK_Y, 0))
+	var head_pivot := _pivot(neck, "head", Vector3(0, head_y, 0))
+	var head := Node3D.new() # desenho da cabeça (o pivô é o atlas, abaixo do centro)
+	head.name = "HeadGeo"
+	head.position = Vector3(0, HEAD_GEO_Y, 0)
+	head_pivot.add_child(head)
 	_sphere(head, 0.12, Vector3(0, 0.14, 0), m_skin, Vector3(0.95, 1.05, 1.0))
 	match headgear:
 		Headgear.HELMET:
@@ -888,16 +1207,16 @@ func _build() -> void:
 		var n: String = side[0]
 		var sg: float = side[1]
 		# Clavícula: levanta e projeta o ombro quando o braço sobe ou vai à frente.
-		var clav := _pivot(chest, "clav_" + n, Vector3(sg * CLAV_X * b, 0.48 - CHEST_Y, 0))
-		var sh := _pivot(clav, "sh_" + n, Vector3(sg * (0.3 - CLAV_X) * b, 0, 0))
+		var clav := _pivot(chest, "clav_" + n, Vector3(sg * clav_x * b, clav_y, 0))
+		var sh := _pivot(clav, "sh_" + n, Vector3(sg * (shoulder_x - clav_x) * b, 0, 0))
 		var pr := 0.09 * b * pauldron_scale
 		_sphere(sh, pr, Vector3(sg * 0.02, 0.03, 0), m_acc, Vector3(1.15, 0.8, 1.05))
-		var el := _pivot(sh, "el_" + n, Vector3(0, -0.3, 0))
+		var el := _pivot(sh, "el_" + n, Vector3(0, -upper_arm, 0))
 		_sphere(el, 0.05 * b, Vector3.ZERO, m_acc)
-		_soft_box(el, Vector3(0.11 * b, 0.13, 0.11 * b), Vector3(0, -0.2, 0), m_leather, 0.45) # manopla
+		_soft_box(el, Vector3(0.11 * b, 0.13, 0.11 * b), Vector3(0, -forearm * 0.69, 0), m_leather, 0.45) # manopla
 		var hand := Node3D.new()
 		hand.name = "hand_" + n
-		hand.position = Vector3(0, -0.29, 0)
+		hand.position = Vector3(0, -forearm, 0)
 		el.add_child(hand)
 		hand.scale = Vector3.ONE * fist_scale
 		_soft_box(hand, Vector3(0.085 * b, 0.075, 0.095), Vector3(0, 0.0, 0.005), m_leather, 0.5) # palma
@@ -921,20 +1240,22 @@ func _build() -> void:
 				_build_bow(hand, m_acc)
 
 		# Pernas: coxa, joelheira, cano da bota e pé
-		var th := _pivot(_hips, "th_" + n, Vector3(sg * 0.11 * b, -0.02, 0))
-		var kn := _pivot(th, "kn_" + n, Vector3(0, -THIGH_LEN, 0))
+		var th := _pivot(_hips, "th_" + n, Vector3(sg * hip_x * b, hip_joint_y, 0))
+		var kn := _pivot(th, "kn_" + n, Vector3(0, -thigh_len, 0))
 		_sphere(kn, 0.07 * b, Vector3(0, 0, 0.035), m_acc, Vector3(1.0, 1.0, 0.8))
 		var ft := Node3D.new() # tornozelo: o pé gira por conta própria para acompanhar o chão
 		ft.name = "ft_" + n
-		ft.position = Vector3(0, -SHIN_LEN, 0)
+		ft.position = Vector3(0, -shin_len, 0)
 		kn.add_child(ft)
 		_feet[n] = ft
 		# Pé em duas partes: calcanhar/peito do pé e ponta, que dobra (junta "toe") ao desprender.
-		_soft_box(ft, Vector3(0.115 * b, 0.09, 0.17), Vector3(0, 0.02, 0.01), m_leather, 0.45)
-		_soft_box(ft, Vector3(0.12 * b, 0.025, 0.18), Vector3(0, -0.02, 0.01), m_dark, 0.25) # sola
+		# Pé desenhado para tornozelo a 0.06 do chão; desce o que o esboço puser a mais.
+		var fy := 0.06 - foot_h
+		_soft_box(ft, Vector3(0.115 * b, 0.09 - fy, 0.17), Vector3(0, 0.02 + fy * 0.5, 0.01), m_leather, 0.45)
+		_soft_box(ft, Vector3(0.12 * b, 0.025, 0.18), Vector3(0, -0.02 + fy, 0.01), m_dark, 0.25) # sola
 		var toe := Node3D.new()
 		toe.name = "toe_" + n
-		toe.position = Vector3(0, -0.02, TOE_Z)
+		toe.position = Vector3(0, -0.02 + fy, TOE_Z)
 		ft.add_child(toe)
 		_toes[n] = toe
 		_soft_box(toe, Vector3(0.112 * b, 0.07, 0.1), Vector3(0, 0.035, 0.04), m_leather, 0.55)
@@ -943,6 +1264,11 @@ func _build() -> void:
 	# Corpo (tronco, pescoço, braços e pernas) numa malha contínua com esqueleto: dobra suave nas
 	# articulações, sem emendas entre peças. Armaduras, mãos, pés e cabeça continuam peças presas.
 	_build_body_skin(m_skin, m_cloth, m_leather)
+	# Joelhos e cotovelos são dobradiças: ordem XYZ deixa a dobra (X) passar de 90° sem salto de Euler
+	# (clipes de captura de movimento). Poses só com X ficam iguais em qualquer ordem.
+	for n in ["l", "r"]:
+		(_joints["kn_" + n] as Node3D).rotation_order = EULER_ORDER_XYZ
+		(_joints["el_" + n] as Node3D).rotation_order = EULER_ORDER_XYZ
 
 
 # --- Malha contínua com esqueleto ----------------------------------------------
@@ -951,6 +1277,8 @@ func _build() -> void:
 const SKIN_BONES: Array[String] = [
 	"hips", "spine", "chest", "neck", "head", "clav_l", "clav_r", "sh_l", "sh_r", "el_l", "el_r",
 	"th_l", "th_r", "kn_l", "kn_r", "ft_l", "ft_r",
+	# Punhos (a mão dobra com o ângulo da arma / balança), pontas dos pés e cadeia do cabelo (física).
+	"wr_l", "wr_r", "toe_l", "toe_r", "hair_1", "hair_2", "hair_3",
 ]
 ## Vértices por anel das malhas tubulares (mais = mais redondo).
 const RING_SEGMENTS := 28
@@ -963,6 +1291,12 @@ var _bone_nodes: Array[Node3D] = []
 func _bone_node(bone: String) -> Node3D:
 	if bone.begins_with("ft_"):
 		return _feet[bone.substr(3)]
+	if bone.begins_with("toe_"):
+		return _toes[bone.substr(4)]
+	if bone == "wr_l":
+		return _hands["l"]
+	if bone.begins_with("hair_"):
+		return _hair_nodes[int(bone.substr(5)) - 1]
 	return _joints[bone]
 
 
@@ -970,6 +1304,10 @@ func _build_body_skin(m_skin: StandardMaterial3D, m_cloth: StandardMaterial3D, m
 	_skel = Skeleton3D.new()
 	_skel.name = "BodySkeleton"
 	add_child(_skel)
+	var model_joints := _load_model_joints()
+	if not model_joints.is_empty():
+		_place_joints_for_model(model_joints)
+	_make_hair_nodes(model_joints)
 	_skin_res = Skin.new()
 	_bone_nodes.clear()
 	var inv := _skel.global_transform.affine_inverse()
@@ -983,6 +1321,9 @@ func _build_body_skin(m_skin: StandardMaterial3D, m_cloth: StandardMaterial3D, m
 		_skel.set_bone_rest(i, xf)
 		_skin_res.add_bind(i, xf.affine_inverse())
 		rest[SKIN_BONES[i]] = xf.origin
+	if not model_joints.is_empty():
+		_attach_body_model(model_joints)
+		return
 	var bi := func(bone: String) -> int: return SKIN_BONES.find(bone)
 	var b := bulk
 	var hy: float = (rest["hips"] as Vector3).y
@@ -990,6 +1331,8 @@ func _build_body_skin(m_skin: StandardMaterial3D, m_cloth: StandardMaterial3D, m
 	var cy: float = (rest["chest"] as Vector3).y
 	var ny: float = (rest["neck"] as Vector3).y
 	var hdy: float = (rest["head"] as Vector3).y
+	var sw := shoulder_x / 0.3
+	var tk := neck_y / 0.34 # altura do peito relativa ao desenho original
 	var H: int = bi.call("hips")
 	var S: int = bi.call("spine")
 	var C: int = bi.call("chest")
@@ -1002,9 +1345,9 @@ func _build_body_skin(m_skin: StandardMaterial3D, m_cloth: StandardMaterial3D, m
 		[Vector3(0, sy, 0.0), 0.172 * b, 0.12 * b, H, S, 0.5],
 		[Vector3(0, sy + 0.11, 0.005), 0.165 * b, 0.115 * b, S, S, 0.0],
 		[Vector3(0, cy, 0.01), 0.19 * b, 0.125 * b, S, C, 0.5],
-		[Vector3(0, cy + 0.12, 0.012), 0.235 * b, 0.14 * b, C, C, 0.0],
-		[Vector3(0, cy + 0.23, 0.0), 0.25 * b, 0.13 * b, C, C, 0.0],
-		[Vector3(0, cy + 0.3, -0.005), 0.2 * b, 0.105 * b, C, C, 0.0],
+		[Vector3(0, cy + 0.12 * tk, 0.012), 0.235 * b * lerpf(1.0, sw, 0.5), 0.14 * b, C, C, 0.0],
+		[Vector3(0, cy + 0.23 * tk, 0.0), 0.25 * b * sw, 0.13 * b, C, C, 0.0],
+		[Vector3(0, cy + 0.3 * tk, -0.005), 0.2 * b * sw, 0.105 * b, C, C, 0.0],
 		[Vector3(0, ny - 0.01, 0.0), 0.075, 0.068, C, N, 0.3],
 	], m_cloth)
 	_tube([
@@ -1025,34 +1368,38 @@ func _build_body_skin(m_skin: StandardMaterial3D, m_cloth: StandardMaterial3D, m
 		var th: Vector3 = rest["th_" + n]
 		var kn: Vector3 = rest["kn_" + n]
 		var ft: Vector3 = rest["ft_" + n]
+		var ua := upper_arm / 0.3
+		var fa := forearm / 0.29
+		var tl := thigh_len / 0.45
+		var sl := shin_len / 0.45
 		# Braço (roupa) e antebraço (pele): o anel do cotovelo é o mesmo nos dois (sem emenda).
 		_tube([
 			[sh + Vector3(0, 0.04, 0), 0.062 * b, 0.062 * b, CL, SH, 0.6],
 			[sh + Vector3(0, -0.04, 0), 0.068 * b, 0.066 * b, SH, SH, 0.0],
-			[sh + Vector3(0, -0.13, 0.008), 0.072 * b, 0.07 * b, SH, SH, 0.0],
-			[sh + Vector3(0, -0.23, 0.0), 0.058 * b, 0.056 * b, SH, SH, 0.0],
+			[sh + Vector3(0, -0.13 * ua, 0.008), 0.072 * b, 0.07 * b, SH, SH, 0.0],
+			[sh + Vector3(0, -0.23 * ua, 0.0), 0.058 * b, 0.056 * b, SH, SH, 0.0],
 			[el + Vector3(0, 0.02, 0), 0.051 * b, 0.05 * b, SH, EL, 0.4],
 			[el + Vector3(0, -0.01, 0), 0.05 * b, 0.049 * b, SH, EL, 0.6],
 		], m_cloth)
 		_tube([
 			[el + Vector3(0, -0.01, 0), 0.05 * b, 0.049 * b, SH, EL, 0.6],
-			[el + Vector3(0, -0.07, 0.004), 0.055 * b, 0.052 * b, EL, EL, 0.0],
-			[el + Vector3(0, -0.17, 0.0), 0.047 * b, 0.044 * b, EL, EL, 0.0],
-			[el + Vector3(0, -0.27, 0.0), 0.04 * b, 0.038 * b, EL, EL, 0.0],
+			[el + Vector3(0, -0.07 * fa, 0.004), 0.055 * b, 0.052 * b, EL, EL, 0.0],
+			[el + Vector3(0, -0.17 * fa, 0.0), 0.047 * b, 0.044 * b, EL, EL, 0.0],
+			[el + Vector3(0, -0.27 * fa, 0.0), 0.04 * b, 0.038 * b, EL, EL, 0.0],
 		], m_skin)
 		# Coxa (roupa) e canela/bota (couro).
 		_tube([
 			[th + Vector3(0, 0.07, 0), 0.095 * b, 0.1 * b, H, TH, 0.3],
 			[th + Vector3(0, -0.02, 0), 0.1 * b, 0.102 * b, H, TH, 0.75],
-			[th + Vector3(0, -0.16, 0.008), 0.098 * b, 0.1 * b, TH, TH, 0.0],
-			[th + Vector3(0, -0.34, 0.0), 0.08 * b, 0.08 * b, TH, TH, 0.0],
+			[th + Vector3(0, -0.16 * tl, 0.008), 0.098 * b, 0.1 * b, TH, TH, 0.0],
+			[th + Vector3(0, -0.34 * tl, 0.0), 0.08 * b, 0.08 * b, TH, TH, 0.0],
 			[kn + Vector3(0, 0.03, 0), 0.072 * b, 0.072 * b, TH, KN, 0.4],
 			[kn + Vector3(0, -0.01, 0), 0.071 * b, 0.071 * b, TH, KN, 0.6],
 		], m_cloth)
 		_tube([
 			[kn + Vector3(0, -0.01, 0), 0.071 * b, 0.071 * b, TH, KN, 0.6],
-			[kn + Vector3(0, -0.12, -0.01), 0.078 * b, 0.08 * b, KN, KN, 0.0],
-			[kn + Vector3(0, -0.28, 0.0), 0.064 * b, 0.064 * b, KN, KN, 0.0],
+			[kn + Vector3(0, -0.12 * sl, -0.01), 0.078 * b, 0.08 * b, KN, KN, 0.0],
+			[kn + Vector3(0, -0.28 * sl, 0.0), 0.064 * b, 0.064 * b, KN, KN, 0.0],
 			[ft + Vector3(0, 0.05, 0.0), 0.06 * b, 0.062 * b, KN, FT, 0.3],
 		], m_leather)
 
@@ -1114,6 +1461,289 @@ func _skin_vertex(st: SurfaceTool, pos: Vector3, nrm: Vector3, ring: Array) -> v
 	st.add_vertex(pos)
 
 
+# --- Corpo de um modelo .glb -------------------------------------------------------
+
+## Articulações do tronco/ombros/quadris que passam a ficar nas posições do modelo (o resto do rig —
+## comprimento de braço e perna, IK, armas — continua igual).
+const MODEL_PLACED: Array[String] = ["hips", "spine", "chest", "neck", "head", "clav_l", "clav_r", "sh_l", "sh_r", "th_l", "th_r"]
+## Membros cuja direção na pose do modelo (pose A) é "baixada" para a do rig (reto para baixo).
+const MODEL_LIMB_CHILD := {"sh_l": "el_l", "sh_r": "el_r", "el_l": "wrist_l", "el_r": "wrist_r",
+	"wr_l": "hand_l", "wr_r": "hand_r", "th_l": "kn_l", "th_r": "kn_r", "kn_l": "ft_l", "kn_r": "ft_r"}
+
+
+func _load_model_joints() -> Dictionary:
+	if body_model == null:
+		return {}
+	var path := body_model.resource_path.get_basename() + ".json"
+	if not FileAccess.file_exists(path):
+		push_error("HumanoidRig: falta %s (articulações do modelo)" % path)
+		return {}
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if typeof(data) != TYPE_DICTIONARY:
+		return {}
+	var out := {}
+	for k in data:
+		if data[k] is Array and (data[k] as Array).size() == 3 and not (data[k][0] is Array):
+			var a: Array = data[k]
+			out[k] = Vector3(a[0], a[1], a[2])
+	if data.has("hair_chain"):
+		var chain: Array[Vector3] = []
+		for pt in data["hair_chain"]:
+			chain.append(Vector3(pt[0], pt[1], pt[2]))
+		out["hair_chain"] = chain
+	return out
+
+
+## Move os pivôs do tronco, ombros e quadris para as posições do modelo (espaço do rig, sem escala).
+func _place_joints_for_model(j: Dictionary) -> void:
+	var inv := global_transform.affine_inverse()
+	for name in MODEL_PLACED:
+		if not j.has(name):
+			continue
+		var node := _bone_node(name)
+		var parent := node.get_parent() as Node3D
+		var parent_rig := inv * parent.global_transform
+		node.position = parent_rig.affine_inverse() * (j[name] as Vector3)
+	_fit_lengths_to_model(j)
+
+
+## Ajuste por modelo: o esboço define as proporções-alvo, mas braços e pernas usam os comprimentos
+## medidos no modelo (senão a malha estica até o cotovelo/joelho do esboço). O quadril desce a folga
+## do joelho para a perna não ficar travada reta em pé.
+func _fit_lengths_to_model(j: Dictionary) -> void:
+	var dist := func(a: String, b: String, fallback: float) -> float:
+		if j.has(a) and j.has(b):
+			return ((j[a] as Vector3) - (j[b] as Vector3)).length()
+		return fallback
+	upper_arm = 0.5 * (dist.call("sh_l", "el_l", upper_arm) + dist.call("sh_r", "el_r", upper_arm))
+	forearm = 0.5 * (dist.call("el_l", "wrist_l", forearm) + dist.call("el_r", "wrist_r", forearm))
+	var thigh_m: float = 0.5 * (dist.call("th_l", "kn_l", thigh_len) + dist.call("th_r", "kn_r", thigh_len))
+	var shin_m: float = 0.5 * (dist.call("kn_l", "ft_l", shin_len) + dist.call("kn_r", "ft_r", shin_len))
+	var pr := proportions if proportions != null else BodyProportions.new()
+	var slack := pr.u(pr.knee_slack)
+	if j.has("ft_l") and j.has("ft_r"):
+		foot_h = 0.5 * ((j["ft_l"] as Vector3).y + (j["ft_r"] as Vector3).y)
+	thigh_len = thigh_m
+	shin_len = shin_m
+	leg_reach = thigh_len + shin_len - 0.012
+	if j.has("hips"):
+		hip_y = (j["hips"] as Vector3).y - slack
+	for n in ["l", "r"]:
+		(_joints["el_" + n] as Node3D).position = Vector3(0, -upper_arm, 0)
+		(_hands[n] as Node3D).position = Vector3(0, -forearm, 0)
+		(_joints["kn_" + n] as Node3D).position = Vector3(0, -thigh_len, 0)
+		(_feet[n] as Node3D).position = Vector3(0, -shin_len, 0)
+
+
+## Liga a malha do modelo ao esqueleto do rig. Cada osso do modelo tem repouso = posição da articulação
+## no modelo, com os membros girados da pose A para "reto para baixo" (a pose zero do rig): assim a
+## mesma pose do rig vale para o modelo.
+func _attach_body_model(j: Dictionary) -> void:
+	var inst := body_model.instantiate()
+	var meshes: Array[MeshInstance3D] = []
+	var stack: Array[Node] = [inst]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D and (n as MeshInstance3D).skin != null:
+			meshes.append(n)
+		stack.append_array(n.get_children())
+	var bind_rest := {}
+	var inv_rig := global_transform.affine_inverse()
+	for name in SKIN_BONES:
+		if name.begins_with("hair_") or not j.has(name):
+			# Cabelo (o nó já nasce no repouso da cadeia) e ossos sem dado no modelo: repouso do próprio nó.
+			var xf := inv_rig * _bone_node(name).global_transform
+			bind_rest[name] = Transform3D(xf.basis.orthonormalized(), xf.origin)
+			continue
+		var p: Vector3 = j.get(name, Vector3.ZERO)
+		var q := Basis.IDENTITY
+		if MODEL_LIMB_CHILD.has(name) and j.has(MODEL_LIMB_CHILD[name]):
+			var dir: Vector3 = ((j[MODEL_LIMB_CHILD[name]] as Vector3) - p).normalized()
+			q = Basis(Quaternion(Vector3.DOWN, dir))
+		bind_rest[name] = Transform3D(q, p)
+	for mi in meshes:
+		var old_skin := mi.skin
+		var old_skel := mi.get_node_or_null(mi.skeleton) as Skeleton3D
+		var skin := Skin.new()
+		for i in old_skin.get_bind_count():
+			var bname := String(old_skin.get_bind_name(i))
+			if bname == "" and old_skel != null:
+				bname = old_skel.get_bone_name(old_skin.get_bind_bone(i))
+			var rest_xf: Transform3D = bind_rest.get(bname, Transform3D.IDENTITY)
+			skin.add_named_bind(bname, rest_xf.affine_inverse())
+		mi.owner = null # antes de trocar de pai (senão o dono da cena importada fica inconsistente)
+		mi.get_parent().remove_child(mi)
+		_skel.add_child(mi)
+		mi.transform = Transform3D.IDENTITY
+		mi.skin = skin
+		mi.skeleton = NodePath("..")
+		# Materiais próprios por instância (o flash/brilho do rig mexe neles).
+		for si in mi.mesh.get_surface_count():
+			var m := mi.get_active_material(si)
+			if m is StandardMaterial3D:
+				var dup: StandardMaterial3D = m.duplicate()
+				_model_skin_look(dup)
+				mi.set_surface_override_material(si, dup)
+				_mats.append(dup)
+	inst.free()
+	_hide_procedural_body()
+
+
+## Aparência de pele para o material do modelo: luz atravessando a pele (subsurface, modo pele),
+## brilho de borda suave (silhueta legível em cena escura) e rugosidade de pele.
+func _model_skin_look(m: StandardMaterial3D) -> void:
+	m.subsurf_scatter_enabled = true
+	m.subsurf_scatter_skin_mode = true
+	m.subsurf_scatter_strength = 0.3
+	m.rim_enabled = true
+	m.rim = 0.2
+	m.rim_tint = 0.6
+	if m.roughness_texture == null:
+		m.roughness = 0.6
+
+
+## Esconde as peças do corpo procedural (pele, roupa, armadura, cabeça, mãos, pés); armas, escudo e
+## orbe ficam.
+func _hide_procedural_body() -> void:
+	var keep := ["WeaponSocket", "OffhandSocket", "ShieldSocket"]
+	var stack: Array[Node] = [_body_root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if String(n.name) in keep:
+			continue
+		if n is MeshInstance3D:
+			(n as MeshInstance3D).visible = false
+		stack.append_array(n.get_children())
+
+
+# --- Cabelo com física -----------------------------------------------------------------
+
+## Mola que puxa cada ponto de volta para a forma de repouso (presa ao peito): raiz firme, ponta solta.
+const HAIR_STIFF: Array[float] = [0.0, 0.22, 0.12, 0.07]
+const HAIR_DAMP := 0.86
+## Quanto cada segmento pode se afastar da forma de repouso (graus): sem isso o cabelo passa por
+## cima dos ombros numa parada brusca e estica a malha perto da cabeça.
+const HAIR_MAX_SWING: Array[float] = [25.0, 40.0, 55.0]
+const HAIR_GRAVITY := 7.0
+
+var _hair_nodes: Array[Node3D] = []
+var _hair_on := false
+var _hair_p := PackedVector3Array() # 4 pontos (mundo): raiz na nuca + 3 juntas
+var _hair_prev := PackedVector3Array()
+var _hair_len: Array[float] = [] # comprimento de cada segmento (mundo, com a escala do rig)
+var _hair_anchor := Vector3.ZERO # raiz no espaço da cabeça
+var _hair_rest_chest: Array[Vector3] = [] # pontos no espaço do peito (forma de repouso)
+var _hair_rest_dir: Array[Vector3] = [] # direção de cada segmento no repouso (espaço do rig)
+var _hair_radius: Array[float] = [] # distância do eixo do tronco no repouso (colisão com as costas)
+
+
+## Nós dos ossos do cabelo. Com cadeia no modelo: nascem no repouso dela e são simulados; sem: ficam
+## presos à cabeça (nenhum vértice usa esses ossos).
+func _make_hair_nodes(j: Dictionary) -> void:
+	_hair_nodes.clear()
+	var chain: Array = j.get("hair_chain", [])
+	for k in 3:
+		var n := Node3D.new()
+		n.name = "hair_%d" % (k + 1)
+		if chain.size() == 4:
+			add_child(n)
+			var a: Vector3 = chain[k]
+			var b: Vector3 = chain[k + 1]
+			var dir := (b - a).normalized()
+			_hair_rest_dir.append(dir)
+			n.transform = Transform3D(Basis(Quaternion(Vector3.DOWN, dir)), a)
+		else:
+			(_joints["head"] as Node3D).add_child(n)
+		_hair_nodes.append(n)
+	if chain.size() != 4:
+		return
+	_hair_on = true
+	var head := _joints["head"] as Node3D
+	var chest := _joints["chest"] as Node3D
+	var hips := _joints["hips"] as Node3D
+	_hair_p.resize(4)
+	_hair_prev.resize(4)
+	for k in 4:
+		var w := global_transform * (chain[k] as Vector3)
+		_hair_p[k] = w
+		_hair_prev[k] = w
+		_hair_rest_chest.append(chest.global_transform.affine_inverse() * w)
+		if k > 0:
+			_hair_len.append(_hair_p[k].distance_to(_hair_p[k - 1]))
+			var c := Geometry3D.get_closest_point_to_segment(w, chest.global_position + Vector3.UP * 0.2 * height, hips.global_position)
+			_hair_radius.append(w.distance_to(c) * 0.95)
+	_hair_anchor = head.global_transform.affine_inverse() * _hair_p[0]
+
+
+func _reset_hair() -> void:
+	if not _hair_on:
+		return
+	var chest := _joints["chest"] as Node3D
+	_hair_p[0] = (_joints["head"] as Node3D).global_transform * _hair_anchor
+	for k in range(1, 4):
+		_hair_p[k] = chest.global_transform * _hair_rest_chest[k]
+	_hair_prev = _hair_p.duplicate()
+	_hair_apply()
+
+
+## Verlet: inércia (o cabelo fica para trás quando o corpo acelera e balança depois), gravidade,
+## mola para a forma de repouso, comprimento fixo dos segmentos e colisão com as costas.
+func _update_hair(delta: float) -> void:
+	if not _hair_on or delta <= 0.0:
+		return
+	var head := _joints["head"] as Node3D
+	var chest := _joints["chest"] as Node3D
+	var hips := _joints["hips"] as Node3D
+	_hair_p[0] = head.global_transform * _hair_anchor
+	var g := Vector3.DOWN * HAIR_GRAVITY * height * delta * delta
+	var k_step := minf(delta * 60.0, 1.0)
+	for k in range(1, 4):
+		var cur := _hair_p[k]
+		var vel := (cur - _hair_prev[k]) * HAIR_DAMP
+		_hair_prev[k] = cur
+		cur += vel + g
+		var target := chest.global_transform * _hair_rest_chest[k]
+		cur += (target - cur) * HAIR_STIFF[k] * k_step
+		_hair_p[k] = cur
+	var axis_a := chest.global_position + Vector3.UP * 0.2 * height
+	var axis_b := hips.global_position
+	for _it in 3:
+		for k in range(1, 4):
+			var d := _hair_p[k] - _hair_p[k - 1]
+			_hair_p[k] = _hair_p[k - 1] + d.normalized() * _hair_len[k - 1]
+			# Não entra nas costas.
+			var c := Geometry3D.get_closest_point_to_segment(_hair_p[k], axis_a, axis_b)
+			var off := _hair_p[k] - c
+			if off.length() < _hair_radius[k - 1]:
+				_hair_p[k] = c + off.normalized() * _hair_radius[k - 1]
+	# Limite de balanço de cada segmento em relação ao repouso (preso ao peito).
+	var chest_rot := chest.global_transform.basis.orthonormalized()
+	for k in range(1, 4):
+		var d := (_hair_p[k] - _hair_p[k - 1]).normalized()
+		var rest_w := (chest_rot * _hair_rest_dir[k - 1]).normalized()
+		var ang := rest_w.angle_to(d)
+		var lim := deg_to_rad(HAIR_MAX_SWING[k - 1])
+		if ang > lim:
+			d = rest_w.slerp(d, lim / ang).normalized()
+			_hair_p[k] = _hair_p[k - 1] + d * _hair_len[k - 1]
+	_hair_apply()
+
+
+## Orienta cada osso do cabelo do ponto k-1 para o ponto k (girando a partir do repouso preso ao peito).
+func _hair_apply() -> void:
+	var chest := _joints["chest"] as Node3D
+	var rig_rot := global_transform.basis.orthonormalized()
+	var scl := global_transform.basis.get_scale()
+	var chest_rot := chest.global_transform.basis.orthonormalized() * rig_rot.inverse()
+	for k in 3:
+		var a := _hair_p[k]
+		var dir := (_hair_p[k + 1] - a).normalized()
+		var rest_world := (chest_rot * rig_rot * _hair_rest_dir[k]).normalized()
+		var swing := Basis(Quaternion(rest_world, dir))
+		var b := swing * chest_rot * rig_rot * Basis(Quaternion(Vector3.DOWN, _hair_rest_dir[k]))
+		_hair_nodes[k].global_transform = Transform3D(b.scaled(scl), a)
+
+
 ## Copia a transformação de cada junta animada para o osso correspondente (malha deforma junto).
 func _update_skin() -> void:
 	if _skel == null:
@@ -1132,16 +1762,16 @@ func hurt_parts() -> Array[Dictionary]:
 	var b := bulk
 	var out: Array[Dictionary] = []
 	var head_r := 0.17 if headgear == Headgear.GOLEM else 0.145
-	out.append({"name": "head", "node": _joints["head"], "a": Vector3(0, 0.15, 0), "b": Vector3(0, 0.15, 0), "r": head_r})
-	out.append({"name": "chest", "node": _joints["chest"], "a": Vector3(-0.1 * b, 0.15, 0), "b": Vector3(0.1 * b, 0.15, 0), "r": 0.15 * b})
+	out.append({"name": "head", "node": _joints["head"], "a": Vector3(0, 0.15 + HEAD_GEO_Y, 0), "b": Vector3(0, 0.15 + HEAD_GEO_Y, 0), "r": head_r})
+	out.append({"name": "chest", "node": _joints["chest"], "a": Vector3(-0.1 * b * shoulder_x / 0.3, 0.15, 0), "b": Vector3(0.1 * b * shoulder_x / 0.3, 0.15, 0), "r": 0.15 * b})
 	out.append({"name": "belly", "node": _joints["spine"], "a": Vector3(-0.07 * b, 0.12, 0), "b": Vector3(0.07 * b, 0.12, 0), "r": 0.125 * b})
 	out.append({"name": "pelvis", "node": _hips, "a": Vector3(-0.07 * b, -0.01, 0), "b": Vector3(0.07 * b, -0.01, 0), "r": 0.13 * b})
 	for n in ["l", "r"]:
-		out.append({"name": "arm_" + n, "node": _joints["sh_" + n], "a": Vector3(0, 0.0, 0), "b": Vector3(0, -0.28, 0), "r": 0.07 * b})
-		out.append({"name": "forearm_" + n, "node": _joints["el_" + n], "a": Vector3.ZERO, "b": Vector3(0, -0.26, 0), "r": 0.06 * b})
-		out.append({"name": "hand_" + n, "node": _joints["el_" + n], "a": Vector3(0, -0.31, 0.01), "b": Vector3(0, -0.31, 0.01), "r": 0.055 * b * fist_scale})
-		out.append({"name": "thigh_" + n, "node": _joints["th_" + n], "a": Vector3(0, -0.02, 0), "b": Vector3(0, -THIGH_LEN, 0), "r": 0.09 * b})
-		out.append({"name": "shin_" + n, "node": _joints["kn_" + n], "a": Vector3.ZERO, "b": Vector3(0, -SHIN_LEN + 0.04, 0), "r": 0.075 * b})
+		out.append({"name": "arm_" + n, "node": _joints["sh_" + n], "a": Vector3(0, 0.0, 0), "b": Vector3(0, -upper_arm + 0.02, 0), "r": 0.07 * b})
+		out.append({"name": "forearm_" + n, "node": _joints["el_" + n], "a": Vector3.ZERO, "b": Vector3(0, -forearm + 0.03, 0), "r": 0.06 * b})
+		out.append({"name": "hand_" + n, "node": _joints["el_" + n], "a": Vector3(0, -forearm - 0.02, 0.01), "b": Vector3(0, -forearm - 0.02, 0.01), "r": 0.055 * b * fist_scale})
+		out.append({"name": "thigh_" + n, "node": _joints["th_" + n], "a": Vector3(0, -0.02, 0), "b": Vector3(0, -thigh_len, 0), "r": 0.09 * b})
+		out.append({"name": "shin_" + n, "node": _joints["kn_" + n], "a": Vector3.ZERO, "b": Vector3(0, -shin_len + 0.04, 0), "r": 0.075 * b})
 		out.append({"name": "foot_" + n, "node": _feet[n], "a": Vector3(0, 0.02, -0.06), "b": Vector3(0, 0.02, 0.15), "r": 0.055 * b})
 	return out
 
@@ -1257,7 +1887,7 @@ func _build_tabard(pos: Vector3, mat: StandardMaterial3D) -> Node3D:
 func _build_cape(spine: Node3D) -> void:
 	var m := _mat(cape_color, 0.9)
 	var parent: Node3D = spine
-	var pos := Vector3(0, 0.54 - CHEST_Y, -0.15 * bulk)
+	var pos := Vector3(0, clav_y + 0.06, -0.15 * bulk)
 	var widths := [0.5, 0.54, 0.58]
 	for i in 3:
 		var pivot := Node3D.new()

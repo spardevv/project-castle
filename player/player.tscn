@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1"]
 [ext_resource type="Script" path="res://player/states/crossbow.gd" id="30_xbow"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://player/states/dead.gd" id="12"]
 [ext_resource type="Script" path="res://player/states/guard.gd" id="13"]
 [ext_resource type="PackedScene" path="res://characters/humanoid_rig.tscn" id="14"]
+[ext_resource type="PackedScene" uid="uid://bgxb8co6nqf6" path="res://characters/models/elfa_rig.glb" id="40_elfa"]
 [ext_resource type="Script" path="res://combat/weapon_trail.gd" id="15"]
 [ext_resource type="Script" path="res://player/states/cast.gd" id="16"]
 [ext_resource type="Script" path="res://player/states/art.gd" id="17"]
@@ -74,6 +75,8 @@ shape = SubResource("CapsuleShape3D_hurt")
 [node name="Visual" type="Node3D" parent="."]
 
 [node name="Rig" parent="Visual" instance=ExtResource("14")]
+body_model = ExtResource("40_elfa")
+feminine = true
 skin = Color(0.92, 0.74, 0.6, 1)
 cloth = Color(0.55, 0.1, 0.15, 1)
 accent = Color(0.2, 0.2, 0.24, 1)

@@ -17,11 +17,11 @@ acoplada à **distância andada**, então os pés não deslizam ([[Rig humanoide
 ## Esquiva (`dodge.gd`)
 | Parâmetro | Valor |
 |---|---|
-| Velocidade inicial | 14 m/s, decai até 20% |
-| Duração | 0,38 s |
-| **I-frames** | 0,26 s |
+| Velocidade inicial | 9 m/s, decai até 20% (~2,8 m no total) |
+| Duração | 0,6 s (rolamento de [[Captura de movimento]] legível) |
+| **I-frames** | 0,34 s |
 | Cooldown | 0,5 s |
-| Cancel em ataque | a partir de 60% da duração |
+| Cancel em ataque | a partir de 0,32 s (`attack_cancel_time`) |
 
 - Sem direção no analógico: passo **para trás**.
 - Atravessa inimigos (`contact_enabled = false`).

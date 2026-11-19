@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="960" viewBox="0 0 1400 960" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1400" height="960" fill="#1d2027"/>
+<text x="30" y="42" fill="#f2f2f2" font-size="26" font-weight="600">Esboço de proporções — corpo padrão (8 cabeças)</text>
+<text x="30" y="68" fill="#a9b0bd" font-size="15">Base para o rig, as poses e os modelos. 1 cabeça = altura total ÷ 8 (1,80 m → 22,5 cm).</text>
+<line x1="120" y1="870" x2="980" y2="870" stroke="#343944" stroke-width="1"/>
+<text x="92" y="875" fill="#7d8594" font-size="14" text-anchor="end">0</text>
+<line x1="120" y1="778" x2="980" y2="778" stroke="#343944" stroke-width="1"/>
+<text x="92" y="783" fill="#7d8594" font-size="14" text-anchor="end">1</text>
+<line x1="120" y1="686" x2="980" y2="686" stroke="#343944" stroke-width="1"/>
+<text x="92" y="691" fill="#7d8594" font-size="14" text-anchor="end">2</text>
+<line x1="120" y1="594" x2="980" y2="594" stroke="#343944" stroke-width="1"/>
+<text x="92" y="599" fill="#7d8594" font-size="14" text-anchor="end">3</text>
+<line x1="120" y1="502" x2="980" y2="502" stroke="#343944" stroke-width="1"/>
+<text x="92" y="507" fill="#7d8594" font-size="14" text-anchor="end">4</text>
+<line x1="120" y1="410" x2="980" y2="410" stroke="#343944" stroke-width="1"/>
+<text x="92" y="415" fill="#7d8594" font-size="14" text-anchor="end">5</text>
+<line x1="120" y1="318" x2="980" y2="318" stroke="#343944" stroke-width="1"/>
+<text x="92" y="323" fill="#7d8594" font-size="14" text-anchor="end">6</text>
+<line x1="120" y1="226" x2="980" y2="226" stroke="#343944" stroke-width="1"/>
+<text x="92" y="231" fill="#7d8594" font-size="14" text-anchor="end">7</text>
+<line x1="120" y1="134" x2="980" y2="134" stroke="#343944" stroke-width="1"/>
+<text x="92" y="139" fill="#7d8594" font-size="14" text-anchor="end">8</text>
+<text x="985" y="139" fill="#7d8594" font-size="13">topo da cabeça</text>
+<text x="985" y="231" fill="#7d8594" font-size="13">queixo</text>
+<text x="985" y="323" fill="#7d8594" font-size="13">mamilos</text>
+<text x="985" y="415" fill="#7d8594" font-size="13">umbigo · cotovelo</text>
+<text x="985" y="507" fill="#7d8594" font-size="13">virilha · punho</text>
+<text x="985" y="599" fill="#7d8594" font-size="13">meio da coxa · ponta dos dedos</text>
+<text x="985" y="691" fill="#7d8594" font-size="13">abaixo do joelho</text>
+<text x="985" y="783" fill="#7d8594" font-size="13">meio da canela</text>
+<text x="985" y="875" fill="#7d8594" font-size="13">chão</text>
+<ellipse cx="330" cy="180.0" rx="33.12" ry="46.0" fill="#3a4152" opacity="0.55"/>
+<path d="M 258.24 260.96000000000004 Q 330 244.39999999999998 401.76 260.96000000000004 L 387.04 382.40000000000003 Q 376.0 419.2 403.6 474.40000000000003 L 399.0 511.2 L 261.0 511.2 L 256.4 474.40000000000003 Q 284.0 419.2 272.96 382.40000000000003 Z" fill="#3a4152" opacity="0.55"/>
+<line x1="330" y1="212.19999999999993" x2="330" y2="249.0" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="330" y1="249.0" x2="330" y2="341.0" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="330" y1="341.0" x2="330" y2="423.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="330" y1="423.8" x2="330" y2="469.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="330" y1="249.0" x2="353.0" y2="262.80000000000007" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="353.0" y1="262.80000000000007" x2="401.76" y2="262.80000000000007" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="401.76" y1="262.80000000000007" x2="409.12" y2="400.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="409.12" y1="400.8" x2="412.8" y2="515.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="412.8" y1="515.8" x2="414.64" y2="584.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="330" y1="469.8" x2="368.64" y2="488.2" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="368.64" y1="488.2" x2="363.12" y2="672.2" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="363.12" y1="672.2" x2="359.44" y2="842.4" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="330" y1="249.0" x2="307.0" y2="262.80000000000007" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="307.0" y1="262.80000000000007" x2="258.24" y2="262.80000000000007" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="258.24" y1="262.80000000000007" x2="250.88" y2="400.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="250.88" y1="400.8" x2="247.2" y2="515.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="247.2" y1="515.8" x2="245.36" y2="584.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="330" y1="469.8" x2="291.36" y2="488.2" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="291.36" y1="488.2" x2="296.88" y2="672.2" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="296.88" y1="672.2" x2="300.56" y2="842.4" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<circle cx="330" cy="212.19999999999993" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="330" cy="249.0" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="330" cy="341.0" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="330" cy="423.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="330" cy="469.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="353.0" cy="262.80000000000007" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="401.76" cy="262.80000000000007" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="409.12" cy="400.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="412.8" cy="515.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="414.64" cy="584.8" r="4" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="368.64" cy="488.2" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="363.12" cy="672.2" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="359.44" cy="842.4" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="307.0" cy="262.80000000000007" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="258.24" cy="262.80000000000007" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="250.88" cy="400.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="247.2" cy="515.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="245.36" cy="584.8" r="4" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="291.36" cy="488.2" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="296.88" cy="672.2" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="300.56" cy="842.4" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<line x1="359.44" y1="842.4" x2="369.44" y2="870" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="300.56" y1="842.4" x2="290.56" y2="870" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="258.24" y1="239.80000000000007" x2="401.76" y2="239.80000000000007" stroke="#6fb3ff" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="330.0" y="233.80000000000007" fill="#6fb3ff" font-size="12" text-anchor="middle">ombros 1,55 cab (masc. 1,9)</text>
+<line x1="291.36" y1="511.2" x2="368.64" y2="511.2" stroke="#6fb3ff" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="330.0" y="505.2" fill="#6fb3ff" font-size="12" text-anchor="middle">quadris 0,85</text>
+<text x="330" y="902.2" fill="#cfd5e0" font-size="16" text-anchor="middle" font-weight="600">FRENTE</text>
+<ellipse cx="767.36" cy="180.0" rx="38.64" ry="46.0" fill="#3a4152" opacity="0.55"/>
+<line x1="764.6" y1="212.19999999999993" x2="760.0" y2="249.0" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="760.0" y1="249.0" x2="752.64" y2="341.0" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="752.64" y1="341.0" x2="760.0" y2="423.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="760.0" y1="423.8" x2="755.4" y2="469.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="760.0" y1="249.0" x2="755.4" y2="262.80000000000007" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="755.4" y1="262.80000000000007" x2="748.96" y2="400.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="748.96" y1="400.8" x2="760.0" y2="515.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="760.0" y1="515.8" x2="764.6" y2="584.8" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="755.4" y1="469.8" x2="760.0" y2="488.2" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="760.0" y1="488.2" x2="765.52" y2="672.2" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="765.52" y1="672.2" x2="758.16" y2="842.4" stroke="#e8d7a8" stroke-width="5" stroke-linecap="round"/>
+<line x1="735.16" y1="870" x2="836.36" y2="870" stroke="#e8d7a8" stroke-width="6" stroke-linecap="round"/>
+<line x1="758.16" y1="842.4" x2="739.76" y2="870" stroke="#e8d7a8" stroke-width="5"/>
+<line x1="758.16" y1="842.4" x2="813.36" y2="864" stroke="#e8d7a8" stroke-width="5"/>
+<circle cx="764.6" cy="212.19999999999993" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="760.0" cy="249.0" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="752.64" cy="341.0" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="760.0" cy="423.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="755.4" cy="469.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="755.4" cy="262.80000000000007" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="748.96" cy="400.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="760.0" cy="515.8" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="764.6" cy="584.8" r="4" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="760.0" cy="488.2" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="765.52" cy="672.2" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<circle cx="758.16" cy="842.4" r="7" fill="#ffb347" stroke="#1d2027" stroke-width="2"/>
+<text x="760" y="902.2" fill="#cfd5e0" font-size="16" text-anchor="middle" font-weight="600">LADO</text>
+<text x="842.8" y="856" fill="#7d8594" font-size="12">pé ≈ 1,1 cab</text>
+<text x="1130" y="110" fill="#f2f2f2" font-size="17" font-weight="600">Comprimentos</text>
+<text x="1130" y="140" fill="#cfd5e0" font-size="14">braço (ombro→cotovelo)</text>
+<text x="1385" y="140" fill="#ffb347" font-size="14" text-anchor="end">1.50 cab</text>
+<text x="1130" y="166" fill="#cfd5e0" font-size="14">antebraço (cotovelo→punho)</text>
+<text x="1385" y="166" fill="#ffb347" font-size="14" text-anchor="end">1.25 cab</text>
+<text x="1130" y="192" fill="#cfd5e0" font-size="14">mão</text>
+<text x="1385" y="192" fill="#ffb347" font-size="14" text-anchor="end">0.75 cab</text>
+<text x="1130" y="218" fill="#cfd5e0" font-size="14">coxa (quadril→joelho)</text>
+<text x="1385" y="218" fill="#ffb347" font-size="14" text-anchor="end">2.00 cab</text>
+<text x="1130" y="244" fill="#cfd5e0" font-size="14">canela (joelho→tornozelo)</text>
+<text x="1385" y="244" fill="#ffb347" font-size="14" text-anchor="end">1.85 cab</text>
+<text x="1130" y="270" fill="#cfd5e0" font-size="14">pescoço</text>
+<text x="1385" y="270" fill="#ffb347" font-size="14" text-anchor="end">0.35 cab</text>
+<text x="1130" y="320" fill="#f2f2f2" font-size="17" font-weight="600">Regras de conferência</text>
+<text x="1130" y="350" fill="#a9b0bd" font-size="14">• cotovelo na altura do umbigo</text>
+<text x="1130" y="374" fill="#a9b0bd" font-size="14">• punho na altura da virilha</text>
+<text x="1130" y="398" fill="#a9b0bd" font-size="14">• ponta dos dedos no meio da coxa</text>
+<text x="1130" y="422" fill="#a9b0bd" font-size="14">• metade da altura = virilha</text>
+<text x="1130" y="446" fill="#a9b0bd" font-size="14">• joelho a 2 cabeças do chão</text>
+<text x="1130" y="470" fill="#a9b0bd" font-size="14">• ombros: 1,5–1,6 cab (fem.)</text>
+<text x="1130" y="494" fill="#a9b0bd" font-size="14">                1,8–2,0 cab (masc.)</text>
+<text x="1130" y="560" fill="#f2f2f2" font-size="17" font-weight="600">Hoje (medido)</text>
+<text x="1130" y="586" fill="#7d8594" font-size="12">medida</text>
+<text x="1300" y="586" fill="#7d8594" font-size="12" text-anchor="end">esboço</text>
+<text x="1385" y="586" fill="#7d8594" font-size="12" text-anchor="end">atual</text>
+<text x="1130" y="610" fill="#cfd5e0" font-size="13">altura em cabeças</text>
+<text x="1300" y="610" fill="#ffb347" font-size="13" text-anchor="end">8</text>
+<text x="1385" y="610" fill="#ff7b7b" font-size="13" text-anchor="end">≈6,5 (rig)</text>
+<text x="1130" y="634" fill="#cfd5e0" font-size="13">ombros</text>
+<text x="1300" y="634" fill="#ffb347" font-size="13" text-anchor="end">1,55</text>
+<text x="1385" y="634" fill="#ff7b7b" font-size="13" text-anchor="end">2,5 (rig)</text>
+<text x="1130" y="658" fill="#cfd5e0" font-size="13">braço até o punho</text>
+<text x="1300" y="658" fill="#ffb347" font-size="13" text-anchor="end">2,75</text>
+<text x="1385" y="658" fill="#ff7b7b" font-size="13" text-anchor="end">1,6 (elfa*)</text>
+<text x="1130" y="682" fill="#cfd5e0" font-size="13">coxa</text>
+<text x="1300" y="682" fill="#ffb347" font-size="13" text-anchor="end">2,0</text>
+<text x="1385" y="682" fill="#ff7b7b" font-size="13" text-anchor="end">1,9 (rig)</text>
+<text x="1130" y="720" fill="#a9b0bd" font-size="12">* detecção errou: marcou o cotovelo</text>
+<text x="1130" y="738" fill="#a9b0bd" font-size="12">  como punho; o rig esticou o braço.</text>
+</svg>
