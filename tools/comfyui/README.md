@@ -29,7 +29,7 @@ O script cria **links**: `~/ComfyUI/custom_nodes/castle_nodes` e os workflows ap
 > Não testei o script em Linux (só no Windows). Se algo falhar, a causa mais provável é a versão do PyTorch/CUDA: veja a linha `--index-url .../cu128` (para GPUs antigas use `cu126`).
 
 ## Usar
-1. **Castle 1**: escreva o personagem no quadro verde → *Run* (~15 s) → `output/castle/conceito_*.png`. Para usar **referências**: nos quadros azuis *Referência 1-4* escolha a imagem e aperte **Ctrl+B** (liga o quadro); descreva no texto o que manter ("the same character as in the reference images…"). Para **excluir** uma referência sem tirar a imagem, desligue o interruptor *usar/excluir* dela no nó "Referências (opcional)".
+1. **Castle 1**: escreva o personagem no quadro verde → *Run* (~15 s) → `output/castle/conceito_*.png`. Para usar **referências**: nos quadros azuis *Referência 1-4* escolha a imagem e aperte **Ctrl+B** (liga o quadro); descreva no texto o que manter ("the same character as in the reference images…").
 2. **Castle 2**: em *Folha* carregue essa imagem (ou *Frente* + *Costas*) → *Run* (alguns minutos) → `output/castle/personagem_*.glb`.
 3. Copie o `.glb` para `characters/models/` e rode `tools/blender/rig_character.py` (veja o vault: Ferramentas › Polimento de personagem).
 

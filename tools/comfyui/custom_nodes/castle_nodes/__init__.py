@@ -570,14 +570,8 @@ class CastleReferences:
                                "Tamanho de cada referência ao ser lida (em megapixels). Mais alto = mais detalhe e mais "
                                "memória; 1,0 é o padrão do modelo."}),
             },
-            "optional": {
-                **{f"referencia_{k}": ("IMAGE", {"tooltip": "Imagem de referência (opcional)."})
-                   for k in range(1, cls.MAX_REFS + 1)},
-                # Um interruptor por referência: desligado, a imagem é ignorada mesmo ligada ao nó.
-                **{f"usar_{k}": ("BOOLEAN", {"default": True, "label_on": "usar", "label_off": "excluir", "tooltip":
-                                             f"Desligue para EXCLUIR a referência {k} sem tirar a imagem do quadro."})
-                   for k in range(1, cls.MAX_REFS + 1)},
-            },
+            "optional": {f"referencia_{k}": ("IMAGE", {"tooltip": "Imagem de referência (opcional)."})
+                         for k in range(1, cls.MAX_REFS + 1)},
         }
 
     RETURN_TYPES = ("CONDITIONING", "INT")
@@ -589,8 +583,7 @@ class CastleReferences:
     def run(self, conditioning, vae, megapixels, **refs):
         import comfy.utils
         import node_helpers
-        images = [refs[f"referencia_{k}"] for k in range(1, self.MAX_REFS + 1)
-                  if refs.get(f"referencia_{k}") is not None and refs.get(f"usar_{k}", True)]
+        images = [refs[f"referencia_{k}"] for k in range(1, self.MAX_REFS + 1) if refs.get(f"referencia_{k}") is not None]
         for img in images:
             for b in range(int(img.shape[0])):  # lote de imagens = várias referências de uma vez
                 one = img[b:b + 1, ..., :3]
