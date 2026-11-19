@@ -552,57 +552,11 @@ class CastleProjectViews:
         return (out.result[0], out.result[1])
 
 
-# --- Referências para a geração de imagem (FLUX.2 Klein) -------------------------------------------
-
-class CastleReferences:
-    """Anexa de 0 a 6 imagens de referência ao condicionamento do FLUX.2 (cada uma vira um 'latente de referência', como o
-    nó ReferenceLatent). Sem nenhuma imagem ligada, o condicionamento passa sem mudança (gera só pelo texto)."""
-
-    MAX_REFS = 6
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "conditioning": ("CONDITIONING",),
-                "vae": ("VAE", {"tooltip": "flux2-vae"}),
-                "megapixels": ("FLOAT", {"default": 1.0, "min": 0.25, "max": 4.0, "step": 0.05, "tooltip":
-                               "Tamanho de cada referência ao ser lida (em megapixels). Mais alto = mais detalhe e mais "
-                               "memória; 1,0 é o padrão do modelo."}),
-            },
-            "optional": {f"referencia_{k}": ("IMAGE", {"tooltip": "Imagem de referência (opcional)."})
-                         for k in range(1, cls.MAX_REFS + 1)},
-        }
-
-    RETURN_TYPES = ("CONDITIONING", "INT")
-    RETURN_NAMES = ("conditioning", "quantas_referencias")
-    FUNCTION = "run"
-    CATEGORY = "Castle"
-    DESCRIPTION = "Opcional: até 6 imagens de referência (personagem, rosto, roupa, estilo) para o FLUX.2 seguir."
-
-    def run(self, conditioning, vae, megapixels, **refs):
-        import comfy.utils
-        import node_helpers
-        images = [refs[f"referencia_{k}"] for k in range(1, self.MAX_REFS + 1) if refs.get(f"referencia_{k}") is not None]
-        for img in images:
-            for b in range(int(img.shape[0])):  # lote de imagens = várias referências de uma vez
-                one = img[b:b + 1, ..., :3]
-                h, w = int(one.shape[1]), int(one.shape[2])
-                scale = math.sqrt(megapixels * 1024 * 1024 / (w * h))
-                nw, nh = max(16, round(w * scale / 16) * 16), max(16, round(h * scale / 16) * 16)
-                one = comfy.utils.common_upscale(one.movedim(-1, 1), nw, nh, "area", "disabled").movedim(1, -1)
-                lat = vae.encode(one)
-                conditioning = node_helpers.conditioning_set_values(conditioning, {"reference_latents": [lat]}, append=True)
-        return (conditioning, sum(int(i.shape[0]) for i in images))
-
-
 NODE_CLASS_MAPPINGS = {"CastlePrepareViews": CastlePrepareViews, "CastleRefineViews": CastleRefineViews,
                        "CastleConditioning3D": CastleConditioning3D, "CastleProjectViews": CastleProjectViews,
-                       "CastleViewsTo3D": CastleViewsTo3D,
-                       "CastleReferences": CastleReferences}
+                       "CastleViewsTo3D": CastleViewsTo3D}
 NODE_DISPLAY_NAME_MAPPINGS = {"CastlePrepareViews": "Castle: 1. Preparar vistas",
                               "CastleRefineViews": "Castle: 2. Refinar vistas com texto (opcional)",
                               "CastleConditioning3D": "Castle: 3. Vistas para 3D",
                               "CastleProjectViews": "Castle: 4. Pintar textura com as vistas",
-                              "CastleViewsTo3D": "Castle: Vistas do personagem para 3D (antigo)",
-                              "CastleReferences": "Castle: Referências (opcional)"}
+                              "CastleViewsTo3D": "Castle: Vistas do personagem para 3D (antigo)"}

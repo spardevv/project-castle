@@ -29,7 +29,7 @@ mkdir -p custom_nodes user/default/workflows
 ln -sfn "$HERE/custom_nodes/castle_nodes" custom_nodes/castle_nodes
 for f in "$HERE"/workflows/*.json; do ln -sf "$f" "user/default/workflows/$(basename "$f")"; done
 
-echo "==> Modelos (~38 GB; retoma se interromper)"
+echo "==> Modelos (~30 GB; retoma se interromper)"
 get() {  # get <subpasta> <url> <arquivo>
   mkdir -p "models/$1"
   if [ -s "models/$1/$3" ]; then echo "  já existe: $1/$3"; else echo "  baixando: $1/$3"; curl -L --fail -C - -o "models/$1/$3" "$2"; fi
@@ -42,8 +42,6 @@ get background_removal "$HF/Comfy-Org/BiRefNet/resolve/main/background_removal/b
 get diffusion_models "$HF/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors" z_image_turbo_bf16.safetensors
 get text_encoders    "$HF/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors"              qwen_3_4b.safetensors
 get vae              "$HF/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors"                              ae.safetensors
-get diffusion_models "$HF/Comfy-Org/flux2-klein-4B/resolve/main/split_files/diffusion_models/flux-2-klein-4b.safetensors"    flux-2-klein-4b.safetensors
-get vae              "$HF/Comfy-Org/flux2-klein-4B/resolve/main/split_files/vae/flux2-vae.safetensors"                            flux2-vae.safetensors
 
 cat <<EOF
 
