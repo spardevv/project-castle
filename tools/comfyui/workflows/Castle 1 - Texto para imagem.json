@@ -22,7 +22,7 @@
     "Node name for S&R": "MarkdownNote"
    },
    "widgets_values": [
-    "## Texto → folha do personagem (FLUX.2 Klein 4B)\n\n1. Descreva o personagem no quadro verde **Personagem** (inglês funciona melhor: corpo, cabelo, roupa, idade, estilo).\n2. **Referências (opcional):** nos quadros azuis *Referência 1-4* (desligados), escolha uma imagem e aperte **Ctrl+B** para ligar. Pode usar o rosto, a roupa, a pose, um personagem inteiro... até 6 (o nó roxo aceita também um lote de imagens). Com referências, escreva no **Personagem** o que manter, ex.: *'the same character as in the reference images, same face and hair, wearing a dark green bikini'*. Sem nenhuma ligada, gera só pelo texto.\n3. **Run** (~15 s). Sai em `output/castle/conceito_*.png`, uma **folha com 3 vistas** (frente, perfil, costas), no formato que o **Castle 2** usa direto (ordem *frente, lado, costas (3 vistas)*).\n\nO quadro cinza **Regras da folha** garante as 3 vistas, a pose e o fundo — não precisa mexer. Não gostou? Rode de novo (a seed muda sozinha)."
+    "## Texto → folha do personagem (FLUX.2 Klein 4B)\n\n1. Descreva o personagem no quadro verde **Personagem** (inglês funciona melhor: corpo, cabelo, roupa, idade, estilo).\n2. **Referências (opcional):** nos quadros azuis *Referência 1-4* (desligados), escolha uma imagem e aperte **Ctrl+B** para ligar. Pode usar o rosto, a roupa, a pose, um personagem inteiro... até 6 (o nó roxo aceita também um lote de imagens). **Para excluir uma referência** sem mexer no quadro, use o interruptor *usar / excluir* dela no nó roxo. Com referências, escreva no **Personagem** o que manter, ex.: *'the same character as in the reference images, same face and hair, wearing a dark green bikini'*. Sem nenhuma ligada, gera só pelo texto.\n3. **Run** (~15 s). Sai em `output/castle/conceito_*.png`, uma **folha com 3 vistas** (frente, perfil, costas), no formato que o **Castle 2** usa direto (ordem *frente, lado, costas (3 vistas)*).\n\nO quadro cinza **Regras da folha** garante as 3 vistas, a pose e o fundo — não precisa mexer. Não gostou? Rode de novo (a seed muda sozinha)."
    ]
   },
   {
@@ -454,7 +454,7 @@
    ],
    "size": [
     320,
-    220
+    420
    ],
    "flags": {},
    "order": 9,
@@ -489,6 +489,16 @@
      "name": "referencia_4",
      "type": "IMAGE",
      "link": 10
+    },
+    {
+     "name": "referencia_5",
+     "type": "IMAGE",
+     "link": null
+    },
+    {
+     "name": "referencia_6",
+     "type": "IMAGE",
+     "link": null
     }
    ],
    "outputs": [
@@ -510,7 +520,13 @@
     "Node name for S&R": "CastleReferences"
    },
    "widgets_values": [
-    1.0
+    1.0,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
    ],
    "title": "Referências (opcional)",
    "color": "#323",
