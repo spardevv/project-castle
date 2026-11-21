@@ -10,6 +10,8 @@ const FLANK_FORWARD := 0.9
 const KEEP_AWAY := 4.0
 const COMBAT_RANGE := 15.0
 const SIDE_HOLD := 3.0
+const ARROW_RANGE := 16.0
+const ARROW_COOLDOWN := 1.2
 
 var _side := 1.0 # +1 direita do jogador, -1 esquerda
 var _side_timer := 0.0
@@ -90,6 +92,10 @@ func physics_update(delta: float) -> void:
 	if pid != &"":
 		c.passive_timers[pid] = float(SummonSkills.PASSIVES[pid]["cooldown"])
 		machine.change_to(&"Skill", {"id": pid})
+	elif nearest != null and nearest_d < ARROW_RANGE and c.attack_cd <= 0.0 and c.is_on_floor():
+		# Ataque básico: seta arcana de alvo único.
+		c.attack_cd = ARROW_COOLDOWN
+		machine.change_to(&"Skill", {"id": &"arrow"})
 
 
 ## Primeira passiva equipada, pronta e cuja condição vale agora.
@@ -111,6 +117,8 @@ func _pick_passive(c: Summon, p: Player, nearest: Node3D, nearest_d: float) -> S
 			continue
 		var ok := false
 		match id:
+			&"m_orbs":
+				ok = near_player >= 1
 			&"m_bolt":
 				ok = nearest != null and nearest_d > 3.0 and nearest_d < 16.0
 			&"m_frost":

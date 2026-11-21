@@ -3,6 +3,8 @@ extends CharacterBody3D
 ## Inimigo genérico: o arquétipo (soldado, brutamontes, arqueiro) vem dos exports da cena.
 ## Reusa Health/Hitbox/Hurtbox e StateMachine; os golpes vêm de EnemyMoves por move_set.
 
+const BANISHED := preload("res://enemies/states/banished.gd")
+
 ## Colide só com o cenário; o contato com outros personagens é do BodyContacts (empurrão por massa).
 const BODY_MASK := 1 << 0
 
@@ -63,6 +65,10 @@ func _ready() -> void:
 	cs.shape = cs.shape.duplicate()
 	health.damaged.connect(_on_damaged)
 	health.died.connect(_on_died)
+	# Estado extra (skill Banimento do mago), comum a todos os inimigos: registrado por código.
+	var banished_state: State = BANISHED.new()
+	banished_state.name = "Banished"
+	machine.add_child(banished_state)
 	machine.start(self)
 
 
@@ -102,8 +108,19 @@ func taunt(target: Node3D, duration: float) -> void:
 
 
 func pull_toward(pos: Vector3) -> void:
-	if health.current > 0:
+	if health.current > 0 and not is_banished():
 		machine.change_to(&"Pulled", {"pos": pos})
+
+
+func is_banished() -> bool:
+	return machine.current_name() == "Banished"
+
+
+## Banimento: manda o inimigo para um plano alternativo por `duration` s (cancela o que ele fazia).
+## `caster` (o mago) recebe banish_finished() quando ele volta.
+func banish(duration: float, caster: Node = null) -> void:
+	if health.current > 0 and not is_banished():
+		machine.change_to(&"Banished", {"duration": duration, "caster": caster})
 
 
 ## Vetor horizontal até o alvo atual (ZERO se não houver). Mantém o nome por compatibilidade.
@@ -163,8 +180,8 @@ func _on_damaged(hit: HitData) -> void:
 	if health.current <= 0:
 		rig.flash(Color(1, 1, 1))
 		return
-	# Agarrado: só pisca; o golem decide quando o solta (e o golpe de soltar já vem depois).
-	if machine.current_name() == "Held":
+	# Agarrado (ou banido): só pisca; o golem decide quando o solta. Dano contínuo nunca causa reação.
+	if hit.dot or machine.current_name() == "Held" or machine.current_name() == "Banished":
 		rig.flash(Color(1, 1, 1))
 		return
 	# Super armor: atacando (ou sempre, no brutamontes), absorve golpes até o poise quebrar.

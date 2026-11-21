@@ -1,34 +1,41 @@
 extends SummonState
 ## Skills de lançar parado no lugar (comandadas ou passivas), de todos os summons:
-##  Golem:     quake (terremoto), taunt (provocar).
-##  Sacerdote: heal, ward, bless, haste (buffs no jogador) | hex, slow (debuffs nos inimigos)
+##  Golem:     quake (terremoto), taunt (provocar) — guardadas para depois.
+##  Sacerdote: heal (10% da vida máx.), blessing (passiva) | ward, bless, haste (buffs) | hex, slow (debuffs)
 ##             | smite (coluna de luz), nova (explosão de luz).
+##  Mago:      banish (Banimento), arrow (seta arcana, ataque básico), orbs (passiva) | blast, frostnova, storm, meteor.
 ## Socos, Lançar pedra e Agarrar têm estados próprios (Strike em cadeia, Rock, Grab).
 
 const TAUNT_TIME := 4.0
-const HEAL_AMOUNT := 35
+const HEAL_RATIO := 0.10 # da vida máxima do jogador
 const DEBUFF_RADIUS := 9.0
 const MAGE_TIMES := {"anim": "priest_cast", "windup": 0.35, "active": 0.1, "recovery": 0.25}
-const MAGE_SKILLS: Array[StringName] = [&"blast", &"frostnova", &"storm", &"meteor"]
+## Skills do mago que usam o clipe "magic_attack" do Mixamo (se existir); as outras mantêm a pose de conjurar.
+const MAGE_CLIP_SKILLS: Array[StringName] = [&"blast", &"banish", &"arrow"]
+const MAGE_SKILLS: Array[StringName] = [&"blast", &"frostnova", &"storm", &"meteor", &"banish", &"arrow", &"orbs"]
 const PRIEST_TIMES := {"anim": "priest_cast", "windup": 0.45, "active": 0.1, "recovery": 0.3}
 const TIMES := {
+	&"arrow": {"anim": "priest_cast", "windup": 0.22, "active": 0.05, "recovery": 0.2},
 	&"quake": {"anim": "e_smash", "windup": 0.55, "active": 0.12, "recovery": 0.5},
 	&"taunt": {"anim": "taunt", "windup": 0.5, "active": 0.4, "recovery": 0.3},
 }
 ## Passivas do sacerdote reaproveitam o efeito da skill comandada equivalente.
-const ALIAS := {&"p_heal": &"heal", &"p_renew": &"renew", &"p_bless": &"bless", &"p_ward": &"ward", &"p_slow": &"slow", &"p_smite": &"smite",
+const ALIAS := {&"p_blessing": &"blessing", &"m_orbs": &"orbs", &"p_heal": &"heal", &"p_renew": &"renew", &"p_bless": &"bless", &"p_ward": &"ward", &"p_slow": &"slow", &"p_smite": &"smite",
 	&"m_bolt": &"blast", &"m_frost": &"frostnova", &"m_meteor": &"meteor", &"m_storm": &"storm"}
 const COLORS := {
 	&"heal": Color(0.4, 1.0, 0.55), &"renew": Color(0.5, 1.0, 0.7), &"ward": Color(0.4, 0.75, 1.0), &"bless": Color(1.0, 0.85, 0.3),
 	&"haste": Color(0.5, 1.0, 0.6), &"hex": Color(0.7, 0.3, 0.9), &"slow": Color(0.5, 0.6, 1.0),
 	&"smite": Color(1.0, 0.9, 0.5), &"nova": Color(1.0, 0.95, 0.7), &"taunt": Color(1.0, 0.6, 0.2),
 	&"quake": Color(0.7, 0.6, 0.4),
+	&"blessing": Color(1.0, 0.9, 0.45), &"banish": Color(0.45, 1.0, 0.6), &"arrow": Color(0.55, 0.7, 1.0), &"orbs": Color(0.55, 0.7, 1.0),
 	&"blast": Color(1.0, 0.55, 0.2), &"frostnova": Color(0.55, 0.85, 1.0), &"storm": Color(0.8, 0.8, 1.0), &"meteor": Color(1.0, 0.4, 0.1),
 }
 
 var _id: StringName = &"quake"
 var _t := 0.0
 var _applied := false
+var _target: Enemy # alvo escolhido na hora de comandar (banimento)
+var _had_target := false
 
 
 func enter(msg: Dictionary = {}) -> void:
@@ -36,6 +43,8 @@ func enter(msg: Dictionary = {}) -> void:
 	_id = ALIAS.get(raw, raw)
 	_t = 0.0
 	_applied = false
+	_target = msg.get("target") as Enemy
+	_had_target = _target != null
 
 
 func exit() -> void:
@@ -43,9 +52,19 @@ func exit() -> void:
 
 
 func _times() -> Dictionary:
+	var tm: Dictionary
 	if TIMES.has(_id):
-		return TIMES[_id]
-	return MAGE_TIMES if _id in MAGE_SKILLS else PRIEST_TIMES
+		tm = TIMES[_id]
+	else:
+		tm = MAGE_TIMES if _id in MAGE_SKILLS else PRIEST_TIMES
+	# Clipes de captura de movimento: cura do sacerdote ("heal") e magia do mago ("magic_attack").
+	if _id == &"heal" and AnimClip.get_clip("heal") != null:
+		tm = {"anim": "heal", "windup": 0.5, "active": 0.4, "recovery": 0.4}
+	elif _id in MAGE_CLIP_SKILLS and AnimClip.get_clip("magic_attack") != null:
+		tm = tm.duplicate()
+		tm["anim"] = "magic_attack"
+		tm["windup"] = maxf(float(tm["windup"]), 0.3)
+	return tm
 
 
 func physics_update(delta: float) -> void:
@@ -83,6 +102,12 @@ func _cast() -> void:
 			Sfx.play(&"heal", at, 0.0, 1.3)
 		&"blast":
 			Sfx.play(&"fire", at)
+		&"banish":
+			Sfx.play(&"debuff", at, 2.0, 0.5)
+		&"arrow":
+			Sfx.play(&"zap", at, -8.0, 1.6)
+		&"orbs":
+			Sfx.play(&"zap", at, -2.0, 0.7)
 		&"frostnova", &"storm":
 			Sfx.play(&"zap", at, 0.0, 0.8 if _id == &"frostnova" else 1.0)
 		&"meteor":
@@ -96,6 +121,14 @@ func _cast() -> void:
 			_heal()
 		&"ward", &"bless", &"haste":
 			_buff_player(_id, _id)
+		&"blessing":
+			_buff_player(&"blessing", &"blessing")
+		&"banish":
+			_banish()
+		&"arrow":
+			_arrow()
+		&"orbs":
+			_conjure_orbs()
 		&"renew":
 			_buff_player(&"regen", &"renew") # cura gradual: efeito "regen" do StatusEffects
 		&"hex", &"slow":
@@ -145,7 +178,7 @@ func _heal() -> void:
 		return
 	var player_health := p.get_node_or_null("Health") as Health
 	if player_health != null:
-		var got := player_health.heal(HEAL_AMOUNT)
+		var got := player_health.heal(maxi(1, ceili(player_health.max_health * HEAL_RATIO)))
 		var color: Color = COLORS[&"heal"]
 		Fx.damage_number(c, p.global_position + Vector3(0, 2.2, 0), got, color, "+%d" % got)
 		Fx.spark(c, p.global_position + Vector3(0, 1.0, 0), color)
@@ -210,6 +243,56 @@ func _enemies_around(radius: float, count: int) -> Array[Node3D]:
 			list.append(e)
 	list.shuffle()
 	return list.slice(0, count)
+
+
+## Banimento: manda o alvo escolhido ao comandar (travado/mais próximo) para o plano alternativo por 20 s.
+## Sem alvo desde o início, bane o próprio jogador (sem recarga; apertar a skill de novo o traz de volta).
+func _banish() -> void:
+	var c := s
+	if _had_target:
+		if is_instance_valid(_target) and _target.health.current > 0 and not _target.is_banished():
+			_target.banish(Summon.BANISH_TIME, c)
+			Fx.burst(c, _target.global_position + Vector3(0, 1.0, 0), 1.6, COLORS[&"banish"], 0.6)
+		else:
+			# O alvo morreu ou foi banido durante a conjuração: sem recarga perdida.
+			for sk in c.skills:
+				if sk["id"] == &"banish":
+					sk["timer"] = 0.0
+		return
+	var p := c.owner_player
+	if is_instance_valid(p) and p.has_method("start_banish"):
+		p.start_banish()
+		Fx.burst(c, p.global_position + Vector3(0, 1.0, 0), 1.6, COLORS[&"banish"], 0.6)
+
+
+## Seta arcana (ataque básico do mago): projétil rápido de alvo único.
+func _arrow() -> void:
+	var c := s
+	var origin := c.global_position + Vector3(0, 1.6, 0) + c.forward() * 0.5
+	if c.rig.sword_tip != null:
+		origin = c.rig.sword_tip.global_position
+	var target := _pick_target(16.0)
+	var dir := c.forward()
+	if target != null:
+		dir = (target.global_position + Vector3(0, 1.0, 0) - origin).normalized()
+	var b := Bolt.new()
+	b.direction = dir
+	b.instigator = c
+	b.damage = 9
+	b.speed = 32.0
+	b.lifetime = 1.1
+	b.color = COLORS[&"arrow"]
+	c.get_parent().add_child(b)
+	b.global_position = origin
+
+
+## Orbes arcanas (passiva do mago): 4 orbes rodeiam o mago e atacam quem entrar a 10 m.
+func _conjure_orbs() -> void:
+	var c := s
+	var orbs := ArcaneOrbs.new()
+	orbs.mage = c
+	c.get_parent().add_child(orbs)
+	Fx.burst(c, c.global_position + Vector3(0, 1.5, 0), 2.0, COLORS[&"orbs"], 0.5)
 
 
 ## Bola de fogo do cajado: explode em área ao tocar um inimigo ou o chão.

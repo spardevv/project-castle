@@ -39,6 +39,11 @@ LIMB_END = {"sh_l": "LeftForeArm", "el_l": "LeftHand", "wr_l": "LeftHandMiddle1"
             "sh_r": "RightForeArm", "el_r": "RightHand", "wr_r": "RightHandMiddle1",
             "th_l": "LeftLeg", "kn_l": "LeftFoot", "th_r": "RightLeg", "kn_r": "RightFoot"}
 LOOP_PREFIX = ("idle", "walk", "jog", "run", "sprint", "fall", "strafe", "back")
+LOOP_SUFFIX = ("_idle", "_walk", "_run")
+# Golpes/skills: trecho ativo "start".."end" pelo movimento das juntas (ver attack_markers), não pelo quadril.
+STRIKE_CLIPS = ("kick", "swipe", "combo", "magic_attack", "jump_attack")  # pico de velocidade = impacto
+MULTI_CLIPS = ("combo_melee", "jump_attack")  # vários golpes no mesmo clipe: markers["hits"] = [[início, fim, pico], ...]
+HOLD_CLIPS = ("choke_lift", "heal", "block", "body_block")  # trecho parado (segurar) no meio do clipe
 # Blender (Z para cima, frente -Y) -> Godot (Y para cima, frente +Z do personagem depois do alinhamento).
 C = np.array([[1.0, 0, 0], [0, 0, 1.0], [0, -1.0, 0]])
 
@@ -132,6 +137,69 @@ def find_bones(arm):
         short = b.name.split(":")[-1]
         out[short] = b.name
     return out
+
+
+def attack_markers(ch, n, name):
+    """(início, fim, impacto) do trecho ativo de um golpe/skill pela velocidade angular das juntas.
+    Golpes: pico de velocidade = impacto; ativo = em volta do pico enquanto > 25% dele.
+    Segurar (agarrar, cura, bloqueio): ativo = a janela mais longa de pouco movimento depois do pico."""
+    joints = ("hips", "spine", "sh_l", "sh_r", "el_l", "el_r", "th_l", "th_r")
+    d = np.zeros(n)
+    for j in joints:
+        d[1:] += np.abs(np.diff(np.degrees(ch[j]), axis=0)).sum(axis=1)
+    d = np.convolve(d, np.ones(3) / 3.0, mode="same")
+    peak = int(np.argmax(d))
+    if any(k in name for k in HOLD_CLIPS):
+        # Janelas de pouco movimento (>= 4 quadros). Vale a que está mais longe da pose de repouso (quadro 0)
+        # vezes o tamanho: segurar o pescoço / erguer as mãos, e não o repouso do começo ou do fim do clipe.
+        quiet = d < max(d.max() * 0.2, 0.5)
+        rest = {j: np.degrees(ch[j][0]) for j in ("sh_l", "sh_r", "el_l", "el_r", "spine")}
+        far = np.zeros(n)
+        for j in rest:
+            far += np.abs(np.degrees(ch[j]) - rest[j]).sum(axis=1)
+        runs, cur = [], None
+        for i in range(n):
+            if quiet[i] and cur is None:
+                cur = i
+            if (not quiet[i] or i == n - 1) and cur is not None:
+                if i - cur >= 4:
+                    runs.append((cur, i))
+                cur = None
+        if not runs:
+            return int(n * 0.3), int(n * 0.7), n // 2
+        best = max(runs, key=lambda r: (r[1] - r[0]) * float(far[r[0]:r[1]].mean()))
+        return best[0], best[1], (best[0] + best[1]) // 2
+    thr = d[peak] * 0.25
+    s_i = peak
+    while s_i > 0 and d[s_i - 1] > thr:
+        s_i -= 1
+    e_i = peak
+    while e_i < n - 1 and d[e_i + 1] > thr:
+        e_i += 1
+    return max(s_i - 1, 0), min(e_i + 1, n - 1), peak
+
+
+def multi_hits(ch, n, fps):
+    """Golpes de um clipe com vários (combo): cada pico de velocidade das juntas vira [início, fim, pico]
+    (frações 0..1), com o trecho ativo em volta do pico enquanto > 25% dele."""
+    joints = ("hips", "spine", "sh_l", "sh_r", "el_l", "el_r", "th_l", "th_r")
+    d = np.zeros(n)
+    for j in joints:
+        d[1:] += np.abs(np.diff(np.degrees(ch[j]), axis=0)).sum(axis=1)
+    d = np.convolve(d, np.ones(5) / 5.0, mode="same")
+    gap = max(int(0.3 * fps), 3)
+    peaks = [i for i in range(2, n - 2) if d[i] == d[max(0, i - gap):i + gap + 1].max() and d[i] > d.max() * 0.35]
+    hits = []
+    for p in peaks:
+        thr = d[p] * 0.5
+        s_i, e_i = p, p
+        lim = int(0.25 * fps)  # no máximo 0,25 s para cada lado do pico
+        while s_i > 0 and d[s_i - 1] > thr and p - s_i < lim:
+            s_i -= 1
+        while e_i < n - 1 and d[e_i + 1] > thr and e_i - p < lim:
+            e_i += 1
+        hits.append([max(s_i - 1, 0) / (n - 1), min(e_i + 1, n - 1) / (n - 1), p / (n - 1)])
+    return hits
 
 
 def convert(path, out_dir):
@@ -238,7 +306,7 @@ def convert(path, out_dir):
     for j in ch:
         ch[j] = np.unwrap(ch[j], axis=0)
 
-    loop = name.startswith(LOOP_PREFIX)
+    loop = name.startswith(LOOP_PREFIX) or name.endswith(LOOP_SUFFIX)
     # Pés: altura acima do chão do clipe -> contato.
     floor_a = min(feet["LeftFoot"][:, 1].min(), feet["RightFoot"][:, 1].min())
     floor_t = min(feet["LeftToeBase"][:, 1].min(), feet["RightToeBase"][:, 1].min())
@@ -347,7 +415,7 @@ def convert(path, out_dir):
     else:
         both_off = (contact["l"] < 0.5) & (contact["r"] < 0.5)
         markers = {}
-        if both_off.any() and name.startswith("jump"):
+        if both_off.any() and "jump" in name and "attack" not in name:
             tk = int(np.argmax(both_off))
             after = np.nonzero(~both_off[tk:])[0]
             ld = tk + int(after[0]) if len(after) else n - 1
@@ -366,11 +434,16 @@ def convert(path, out_dir):
             hv = np.convolve(hv, np.ones(5) / 5.0, mode="same")
             act = np.nonzero(hv > hv.max() * 0.25)[0] if hv.max() > 0.05 else np.arange(n)
             s_i, e_i = max(int(act[0]) - 2, 0), min(int(act[-1]) + 3, n - 1)
+        if any(k in name for k in STRIKE_CLIPS + HOLD_CLIPS):
+            s_i, e_i, imp = attack_markers(ch, n, name)
+            markers["impact"] = imp / (n - 1)
+            if any(k in name for k in MULTI_CLIPS):
+                markers["hits"] = multi_hits(ch, n, fps)
         markers["start"] = s_i / (n - 1)
         markers["end"] = e_i / (n - 1)
         log(f"{name}: trecho ativo {(e_i - s_i) / fps:.2f}s")
         data["markers"] = markers
-        log(f"{name}: {n / fps:.2f}s, marcadores {', '.join(f'{k}={v:.2f}' for k, v in markers.items())}")
+        log(f"{name}: {n / fps:.2f}s, marcadores {', '.join(f'{k}={v:.2f}' for k, v in markers.items() if not isinstance(v, list)) + f", {len(markers.get('hits', []))} golpes"}")
 
     deg = lambda a: np.round(np.degrees(a), 2).tolist()
     data["frames"] = n

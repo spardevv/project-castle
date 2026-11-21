@@ -77,6 +77,8 @@ shape = SubResource("CapsuleShape3D_hurt")
 [node name="Rig" parent="Visual" instance=ExtResource("14")]
 body_model = ExtResource("40_elfa")
 feminine = true
+clip_prefix = "female_"
+armed_clips = true
 skin = Color(0.92, 0.74, 0.6, 1)
 cloth = Color(0.55, 0.1, 0.15, 1)
 accent = Color(0.2, 0.2, 0.24, 1)

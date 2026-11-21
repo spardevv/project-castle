@@ -3,6 +3,9 @@ extends CharacterBody3D
 ## Dados e utilitários compartilhados. O comportamento vive nos estados em player/states/.
 
 const FIREBALL := preload("res://combat/projectile.tscn")
+const BANISHED := preload("res://player/states/banished.gd")
+## Distância máxima (m) para interagir com portas/baús (grupo "interactable").
+const INTERACT_RANGE := 2.6
 const SUMMON_SCENES := {
 	&"golem": preload("res://summon/summon.tscn"),
 	&"priest": preload("res://summon/priest.tscn"),
@@ -114,6 +117,10 @@ func _ready() -> void:
 	GameState.loadout_changed.connect(apply_loadout)
 	GameState.summon_kind_changed.connect(_on_summon_kind_changed)
 	apply_loadout()
+	# Estado extra (Banimento do mago usado no jogador), registrado por código.
+	var banished_state: State = BANISHED.new()
+	banished_state.name = "Banished"
+	machine.add_child(banished_state)
 	machine.start(self)
 
 
@@ -139,6 +146,8 @@ func tick(delta: float) -> void:
 				command_skill(pair[1])
 	elif Input.is_action_just_pressed("summon"):
 		toggle_summon()
+	if Input.is_action_just_pressed("interact") and not mod:
+		try_interact()
 
 	if Input.is_action_just_pressed("attack") and not mod:
 		attack_dir = stick_dir_class()
@@ -358,6 +367,8 @@ func fire_projectile() -> void:
 	var proj := FIREBALL.instantiate()
 	proj.direction = dir
 	proj.source = self
+	if has_lock():
+		proj.homing_target = lock_target # com lock-on, a bola de fogo segue o alvo
 	get_parent().add_child(proj)
 	proj.global_position = origin
 	GameFeel.rumble(0.2, 0.0, 0.08)
@@ -419,8 +430,41 @@ func toggle_summon() -> void:
 	summon.owner_player = self
 	get_parent().add_child(summon)
 	# Chega com animação e skill própria (golem: meteoro | sacerdote: explosão de cura).
-	summon.arrive(global_position + forward() * 3.0)
+	summon.arrive(Summon.arrival_spot(summon.arrival, self))
 	summon.health.died.connect(func() -> void: _summon_cd = SUMMON_DEATH_COOLDOWN)
+
+
+## Banido (skill do mago no jogador): sem interação com o mundo, atravessa paredes. Ver states/banished.gd.
+func is_banished() -> bool:
+	return machine.current_name() == "Banished"
+
+
+func start_banish() -> void:
+	if not is_banished() and machine.current_name() != "Dead":
+		machine.change_to(&"Banished")
+
+
+## Tenta voltar ao plano normal; falha (false) enquanto o jogador estiver dentro de uma parede.
+func end_banish() -> bool:
+	if not is_banished():
+		return false
+	return bool(machine.states["Banished"].call("try_exit"))
+
+
+## Botão de interação: usa o objeto "interactable" mais próximo (ex.: baú encantado).
+func try_interact() -> void:
+	if is_banished():
+		return
+	var best: Node3D = null
+	var best_d := INTERACT_RANGE
+	for n in get_tree().get_nodes_in_group("interactable"):
+		var node := n as Node3D
+		var d := node.global_position.distance_to(global_position)
+		if node.has_method("interact") and d < best_d:
+			best_d = d
+			best = node
+	if best != null:
+		best.call("interact", self)
 
 
 ## LB + botão: comanda a skill do slot (0 = X, 1 = Y, 2 = B, 3 = A).

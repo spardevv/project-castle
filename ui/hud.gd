@@ -60,6 +60,7 @@ func _refresh_controls() -> void:
 		[guard_name, g.label(&"guard")],
 		["Alternar corrida", g.label(&"run_toggle")],
 		["Lock-on / trocar alvo", "%s / %s para os lados" % [g.label(&"lock_on"), g.camera_label()]],
+		["Interagir (baús, etc.)", g.label(&"interact")],
 		["Summon: invocar/dispensar", g.label(&"summon")],
 		["Skills do summon (segurar)", "%s + botão" % g.label(&"summon_mod")],
 		["Menu de equipamento", g.label(&"menu") if not g.is_gamepad() else "%s → Equipamento" % g.label(&"pause")],

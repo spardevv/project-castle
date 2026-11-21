@@ -34,6 +34,7 @@ const WEIGHT := {
 	"air1": 0.1, "air2": 0.1, "plunge": 0.8, "grab": 0.5, "e_swing": 0.5, "e_smash": 1.0,
 	"art_dash": 0.4, "art_finish": 0.9, "bash": 0.6, "cast": 0.2, "e_draw": 0.0,
 	"punch_r": 0.5, "punch_l": 0.5, "rock_throw": 0.7, "taunt": 0.6, "priest_cast": 0.1,
+	"kick": 0.7, "shoulder": 0.8, "neck_grip": 0.3,
 	# Martelo: tudo pesado. Quanto maior, mais lenta a preparação e mais seca a batida.
 	"hm_swing_r": 0.85, "hm_swing_l": 0.9, "hm_smash": 1.0, "hm_charge": 1.0, "hm_lunge": 0.9,
 	"hm_rising": 0.9, "hm_air1": 0.75, "hm_air2": 0.8, "hm_plunge": 0.95,
@@ -451,6 +452,63 @@ const ATTACKS := {
 			"sh_r": Vector3(-100, 40, -10), "el_r": Vector3(-25, 0, 0), "wr_r": Vector3(-20, 0, 0),
 			"sh_l": Vector3(-100, -40, 10), "el_l": Vector3(-25, 0, 0),
 			"th_l": Vector3(-34, 0, 6), "kn_l": Vector3(32, 0, 0), "th_r": Vector3(22, 0, -6), "kn_r": Vector3(22, 0, 0),
+		},
+	},
+	# Golem: chute espartano — joelho sobe e a perna direita estoca para frente, tronco inclinado para trás.
+	"kick": {
+		"windup": {
+			"root": Vector3(0, -0.06, -0.1), "hips": Vector3(0, 10, 0), "spine": Vector3(-8, 0, 0), "head": Vector3(0, 0, 0),
+			"sh_r": Vector3(-50, 0, -35), "el_r": Vector3(-70, 0, 0), "wr_r": Vector3.ZERO,
+			"sh_l": Vector3(-50, 0, 35), "el_l": Vector3(-70, 0, 0),
+			"th_r": Vector3(-85, 0, -4), "kn_r": Vector3(100, 0, 0), "th_l": Vector3(8, 0, 6), "kn_l": Vector3(18, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.04, 0.22), "hips": Vector3(0, 6, 0), "spine": Vector3(-22, 0, 0), "head": Vector3(10, 0, 0),
+			"sh_r": Vector3(-30, 0, -60), "el_r": Vector3(-20, 0, 0), "wr_r": Vector3.ZERO,
+			"sh_l": Vector3(-30, 0, 60), "el_l": Vector3(-20, 0, 0),
+			"th_r": Vector3(-100, 0, -4), "kn_r": Vector3(4, 0, 0), "th_l": Vector3(10, 0, 6), "kn_l": Vector3(26, 0, 0),
+		},
+		"follow": {
+			"root": Vector3(0, -0.05, 0.2), "hips": Vector3(0, 6, 0), "spine": Vector3(-20, 0, 0), "head": Vector3(8, 0, 0),
+			"sh_r": Vector3(-30, 0, -60), "el_r": Vector3(-20, 0, 0), "wr_r": Vector3.ZERO,
+			"sh_l": Vector3(-30, 0, 60), "el_l": Vector3(-20, 0, 0),
+			"th_r": Vector3(-92, 0, -4), "kn_r": Vector3(8, 0, 0), "th_l": Vector3(10, 0, 6), "kn_l": Vector3(26, 0, 0),
+		},
+	},
+	# Golem: ombrada — encolhe o ombro esquerdo e joga o corpo inteiro para frente.
+	"shoulder": {
+		"windup": {
+			"root": Vector3(0, -0.12, -0.14), "hips": Vector3(0, -30, 0), "spine": Vector3(14, -28, 0), "head": Vector3(0, 24, 0),
+			"sh_l": Vector3(-30, -30, 45), "el_l": Vector3(-100, 0, 0),
+			"sh_r": Vector3(-40, 0, -45), "el_r": Vector3(-100, 0, 0), "wr_r": Vector3.ZERO,
+			"th_l": Vector3(-24, 0, 6), "kn_l": Vector3(36, 0, 0), "th_r": Vector3(26, 0, -6), "kn_r": Vector3(40, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.3, 0.34), "hips": Vector3(0, 34, 0), "spine": Vector3(44, 30, 0), "head": Vector3(10, -26, 0),
+			"sh_l": Vector3(-45, 20, 40), "el_l": Vector3(-95, 0, 0),
+			"sh_r": Vector3(-40, 0, -45), "el_r": Vector3(-95, 0, 0), "wr_r": Vector3.ZERO,
+			"th_l": Vector3(-52, 0, 6), "kn_l": Vector3(44, 0, 0), "th_r": Vector3(36, 0, -6), "kn_r": Vector3(12, 0, 0),
+		},
+		"follow": {
+			"root": Vector3(0, -0.28, 0.32), "hips": Vector3(0, 30, 0), "spine": Vector3(40, 26, 0), "head": Vector3(8, -22, 0),
+			"sh_l": Vector3(-45, 20, 40), "el_l": Vector3(-95, 0, 0),
+			"sh_r": Vector3(-40, 0, -45), "el_r": Vector3(-95, 0, 0), "wr_r": Vector3.ZERO,
+			"th_l": Vector3(-50, 0, 6), "kn_l": Vector3(44, 0, 0), "th_r": Vector3(34, 0, -6), "kn_r": Vector3(12, 0, 0),
+		},
+	},
+	# Golem: braço direito estendido à frente segurando o inimigo pelo pescoço (golpe "Agarrar").
+	"neck_grip": {
+		"windup": {
+			"root": Vector3(0, -0.1, 0.0), "spine": Vector3(10, 0, 0), "head": Vector3(6, 0, 0), "hips": Vector3.ZERO,
+			"sh_r": Vector3(-95, 8, -6), "el_r": Vector3(-10, 0, 0), "wr_r": Vector3.ZERO,
+			"sh_l": Vector3(-40, 0, 30), "el_l": Vector3(-80, 0, 0),
+			"th_l": Vector3(-14, 0, 8), "kn_l": Vector3(22, 0, 0), "th_r": Vector3(18, 0, -8), "kn_r": Vector3(26, 0, 0),
+		},
+		"strike": {
+			"root": Vector3(0, -0.14, 0.1), "spine": Vector3(16, 0, 0), "head": Vector3(8, 0, 0), "hips": Vector3.ZERO,
+			"sh_r": Vector3(-105, 8, -6), "el_r": Vector3(-5, 0, 0), "wr_r": Vector3.ZERO,
+			"sh_l": Vector3(-40, 0, 30), "el_l": Vector3(-80, 0, 0),
+			"th_l": Vector3(-20, 0, 8), "kn_l": Vector3(28, 0, 0), "th_r": Vector3(20, 0, -8), "kn_r": Vector3(30, 0, 0),
 		},
 	},
 	# --- MARTELO: golpes brutos. Base larga, preparação funda e o corpo todo jogado no golpe. ---

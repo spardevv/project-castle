@@ -9,7 +9,7 @@ const SKILL_COLORS := {
 	&"heal": Color(0.4, 0.95, 0.5), &"renew": Color(0.5, 0.9, 0.7), &"ward": Color(0.45, 0.75, 1.0),
 	&"bless": Color(1.0, 0.85, 0.35), &"haste": Color(0.5, 0.95, 0.95), &"hex": Color(0.75, 0.45, 0.95),
 	&"slow": Color(0.6, 0.6, 1.0), &"smite": Color(1.0, 0.95, 0.5), &"nova": Color(1.0, 0.9, 0.6),
-	&"blast": Color(1.0, 0.55, 0.2), &"frostnova": Color(0.55, 0.85, 1.0), &"storm": Color(0.8, 0.8, 1.0), &"meteor": Color(1.0, 0.45, 0.15),
+	&"banish": Color(0.45, 0.95, 0.6), &"blast": Color(1.0, 0.55, 0.2), &"frostnova": Color(0.55, 0.85, 1.0), &"storm": Color(0.8, 0.8, 1.0), &"meteor": Color(1.0, 0.45, 0.15),
 }
 
 
@@ -143,6 +143,11 @@ static func skill(ci: CanvasItem, id: StringName, c: Vector2, r: float, col: Col
 				pts.append(Vector2(cos(a), sin(a)) * (1.0 if i % 2 == 0 else 0.45))
 			ci.draw_colored_polygon(_p(c, r, pts), col)
 			ci.draw_circle(c, r * 0.28, hi)
+		&"banish":
+			ci.draw_arc(c, r * 0.8, 0.0, TAU, 24, col, w * 1.3)
+			ci.draw_colored_polygon(_p(c, r, [Vector2(-0.4, 0.7), Vector2(-0.4, -0.2), Vector2(-0.2, -0.65), Vector2(0.2, -0.65), Vector2(0.4, -0.2), Vector2(0.4, 0.7), Vector2(0.2, 0.45), Vector2(0.0, 0.7), Vector2(-0.2, 0.45)]), col.darkened(0.15))
+			for ex in [-0.16, 0.16]:
+				ci.draw_circle(c + Vector2(ex, -0.25) * r, r * 0.09, Color(0.05, 0.12, 0.08))
 		&"blast":
 			ci.draw_circle(c + Vector2(0.15, 0.15) * r, r * 0.55, col)
 			ci.draw_circle(c + Vector2(0.15, 0.15) * r, r * 0.28, hi)

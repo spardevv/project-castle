@@ -1,15 +1,18 @@
 extends SummonState
 ## Chegada ao ser invocado — vem junto com uma skill:
-##  - "meteor" (golem): cai do céu como um meteoro e causa dano em área ao bater no chão.
-##  - "holy" (sacerdote): surge numa luz e explode em cura, restaurando quem está por perto.
+##  - "meteor" (golem): cai do céu como um meteoro sobre o inimigo travado (ou o mais próximo) e causa
+##    dano MASSIVO em área ao bater no chão (Summon.arrival_spot escolhe o ponto).
+##  - "holy" (sacerdote): surge ao lado do jogador e explode em cura: +30% da vida máxima e regeneração de 2 s.
+##  - "arcane" (mago): abre uma zona de dano arcano contínuo que causa lentidão.
 ## Fica invulnerável e sem contato físico durante a chegada.
 
 const FALL_HEIGHT := 24.0
 const FALL_SPEED := 38.0
-const METEOR_RADIUS := 4.6
-const METEOR_DAMAGE := 24
+const METEOR_RADIUS := Summon.METEOR_RADIUS
+const METEOR_DAMAGE := Summon.METEOR_DAMAGE
 const HOLY_RADIUS := 10.0
-const HOLY_HEAL := 40
+const HOLY_HEAL_RATIO := 0.30
+const HOLY_REGEN_TIME := 2.0
 
 var _spot := Vector3.ZERO
 var _t := 0.0
@@ -87,8 +90,8 @@ func _impact(c: Summon) -> void:
 	var ex := Explosion.new()
 	ex.radius = METEOR_RADIUS
 	ex.damage = METEOR_DAMAGE
-	ex.knockback = 9.0
-	ex.launch = 6.5
+	ex.knockback = 12.0
+	ex.launch = 8.0
 	ex.color = Color(1.0, 0.55, 0.15)
 	ex.instigator = c.owner_player
 	ex.position = c.global_position + Vector3(0, 0.3, 0)
@@ -125,27 +128,22 @@ func _holy_burst(c: Summon) -> void:
 	if is_instance_valid(p) and p.global_position.distance_to(c.global_position) <= HOLY_RADIUS:
 		var ph := p.get_node_or_null("Health") as Health
 		if ph != null:
-			var got := ph.heal(HOLY_HEAL)
+			var got := ph.heal(ceili(ph.max_health * HOLY_HEAL_RATIO))
 			Fx.damage_number(c, p.global_position + Vector3(0, 2.2, 0), got, color, "+%d" % got)
-		StatusEffects.apply(p, &"regen", 5.0)
+		StatusEffects.apply(p, &"regen", HOLY_REGEN_TIME)
 	GameFeel.shake(0.12)
 	Sfx.play(&"heal", c.global_position + Vector3(0, 1.0, 0), 3.0, 0.9)
 
 
-## Chegada do mago: clarão arcano que empurra e fere quem está em volta.
+## Chegada do mago: abre uma zona de dano arcano contínuo que deixa os inimigos lentos.
 func _arcane_burst(c: Summon) -> void:
 	var color := Color(0.5, 0.75, 1.0)
 	Fx.burst(c, c.global_position + Vector3(0, 0.8, 0), 5.0, color, 0.7)
 	c.rig.flash(Color(0.7, 0.85, 1.0), 0.5)
-	var ex := Explosion.new()
-	ex.radius = 4.5
-	ex.damage = 16
-	ex.knockback = 8.0
-	ex.launch = 4.0
-	ex.color = color
-	ex.instigator = c.owner_player
-	ex.position = c.global_position + Vector3(0, 0.3, 0)
-	c.get_parent().add_child(ex)
+	var zone := ArcaneZone.new()
+	zone.instigator = c
+	zone.position = c.global_position + Vector3(0, 0.05, 0)
+	c.get_parent().add_child(zone)
 	Sfx.play(&"zap", c.global_position + Vector3(0, 1.0, 0), 2.0, 0.8)
 
 

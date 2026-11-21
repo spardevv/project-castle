@@ -1,6 +1,9 @@
 # Mago
-Summon de **dano em área** (80 de vida). Fica no **flanco** do jogador (~3,3 m ao lado e um pouco à frente), no lado com menos inimigos (troca só depois de 3 s); foge de inimigos colados e conjura sozinho (`summon/states/caster.gd`). Chegada: clarão arcano que fere e empurra.
+Summon de **controle e dano arcano** (80 de vida). Fica no **flanco** do jogador (~3,3 m ao lado e um pouco à frente), no lado com menos inimigos (troca só depois de 3 s); foge de inimigos colados (`summon/states/caster.gd`).
 
-**Skills (LB + botão):** Explosão arcana (bola de fogo, 22 em área) · Nova gélida (12 + lentidão) · Tempestade (até 5 raios, 15 cada) · Chuva de meteoros (3 meteoros, 26 cada, com marca no chão e atraso de 0,8 s).
-**Passivas:** Orbe arcano, Geada, Chuva ardente, Tempestade elétrica (escolhidas no menu).
-Dados em `summon/summon_skills.gd`, efeitos em `summon/states/skill.gd`, cena `summon/mage.tscn`.
+- **Skill ativa (LB + X):** Banimento — bane o alvo por 20 s (ou o próprio jogador, para locais secretos). Detalhes em [[Skills do summon]].
+- **Ataque básico:** seta arcana de alvo único.
+- **Passiva:** Orbes arcanas (4 orbes, 40 s de recarga).
+- **Ao ser invocado:** zona de dano arcano contínuo que deixa os inimigos lentos (raio 5, 8 s, 4 de dano a cada 0,5 s).
+
+Dados em `summon/summon_skills.gd`, efeitos em `summon/states/skill.gd`, banimento em `enemies/states/banished.gd` e `player/states/banished.gd`, zona e orbes em `combat/arcane_zone.gd` / `combat/arcane_orbs.gd`, cena `summon/mage.tscn`.

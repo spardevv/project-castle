@@ -26,6 +26,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 shape = SubResource("CapsuleShape3D_mage")
 
 [node name="Rig" parent="Visual" index="0"]
+clip_prefix = ""
+clip_only_prefixed = false
 skin = Color(0.92, 0.78, 0.65, 1)
 cloth = Color(0.25, 0.2, 0.55, 1)
 accent = Color(0.35, 0.8, 1, 1)

@@ -8,6 +8,8 @@
 [ext_resource type="PackedScene" path="res://enemies/archer.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://ui/equipment_menu.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="8"]
+[ext_resource type="Script" path="res://levels/heavy_door.gd" id="9_door"]
+[ext_resource type="Script" path="res://levels/enchanted_chest.gd" id="10_chest"]
 
 [sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
 sky_top_color = Color(0.16, 0.2, 0.34, 1)
@@ -149,3 +151,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0.5, -20)
 [node name="HUD" parent="." unique_id=593510694 instance=ExtResource("4")]
 
 [node name="PauseMenu" parent="." instance=ExtResource("8")]
+
+[node name="HeavyDoor" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 2, 20)
+script = ExtResource("9_door")
+
+[node name="EnchantedChest" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 22)
+script = ExtResource("10_chest")

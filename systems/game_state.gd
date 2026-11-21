@@ -24,14 +24,14 @@ var summon_kind: StringName = &"golem"
 ## Slots comandados (LB+X, LB+Y, LB+B, LB+A) e passivos (ataques automáticos) de cada summon.
 ## &"" = vazio. Ids em SummonSkills.
 var _slots := {
-	&"golem": [&"quake", &"taunt", &"grab", &"rock"],
-	&"priest": [&"heal", &"bless", &"hex", &"smite"],
-	&"mage": [&"blast", &"frostnova", &"storm", &"meteor"],
+	&"golem": [&"grab"],
+	&"priest": [&"heal"],
+	&"mage": [&"banish"],
 }
 var _passives := {
-	&"golem": [&"slam", &"combo"],
-	&"priest": [&"p_aura", &"p_heal"],
-	&"mage": [&"m_bolt", &"m_frost"],
+	&"golem": [&"rock"],
+	&"priest": [&"p_blessing"],
+	&"mage": [&"m_orbs"],
 }
 
 ## Slots do summon ativo (a mesma lista é devolvida, então escrever nela altera o loadout).

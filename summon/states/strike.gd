@@ -55,9 +55,9 @@ func physics_update(delta: float) -> void:
 			c.hitbox.activate(hit, not _p.get("area", _p["name"] == "slam")) # básico segue a clava; pancada/giro são em área
 			c.rig.set_glow(Color(0.6, 0.9, 1.0))
 			c.rig.trail_active = true
-			var big: bool = _p["name"] == "slam" or _p["name"] == "spin"
+			var big: bool = _p["name"] in ["slam", "spin", "kick", "shoulder"]
 			Sfx.play(&"swing_heavy" if big else &"punch", c.global_position + Vector3(0, 1.4, 0), 0.0, 0.8 if big else 1.0)
-			if _p["name"] == "slam" or _p["name"] == "spin" or (_p["name"] == "punch" and int(_p["combo_left"]) == 0):
+			if _p["name"] in ["slam", "spin", "shoulder"] or (_p["name"] == "punch" and int(_p["combo_left"]) == 0):
 				GameFeel.shake(0.14)
 		var fwd := c.forward() * float(_p["lunge"])
 		c.velocity.x = fwd.x

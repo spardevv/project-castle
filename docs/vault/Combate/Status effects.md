@@ -19,6 +19,7 @@ Mostram o nome flutuando sobre o alvo e uma luz colorida; o HUD lista os ativos 
 | `regen` | Regeneração | 8 s | cura 4/s |
 | `hex` | Maldição | 8 s | dano recebido ×1,3 e causado ×0,8 |
 | `slow` | Lentidão | 6 s | velocidade ×0,5 |
+| `blessing` | Benção (passiva do sacerdote) | 5 s | dano causado ×1,25 e dano recebido ×0,75 |
 
 Consultas: `StatusEffects.mult(alvo, "damage_out" | "damage_in" | "speed")` (produto dos efeitos ativos).
 Aplicados principalmente pelas skills do [[Sacerdote]] ([[Skills do summon]]).

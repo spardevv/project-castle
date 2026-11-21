@@ -95,6 +95,16 @@ const LOOK_WEIGHT := {
 ## Usa os clipes de captura de movimento (characters/anims/*.json, do Mixamo) quando existem: idle, walk,
 ## jog, run, sprint, jump, fall, roll, dodge_back, dodge_left, dodge_right. Clipe ausente = pose procedural.
 @export var use_mocap := true
+## Conjunto de clipes próprio do personagem: com prefixo "mutant_", o idle usa mutant_idle.json, o pulo
+## mutant_jump.json etc.; sem o clipe prefixado cai no genérico. `clip_only_prefixed`: a locomoção usa só
+## os ciclos com prefixo (o golem anda só com o mutant_walk, sem misturar jog/run/sprint humanos).
+@export var clip_prefix := ""
+@export var clip_only_prefixed := false
+## Personagem armado (jogador): corrida com espada/escudo (run_sword / run_shield no lugar do jog), golpes da
+## espada longa a1/a2/a3 e golpes aéreos pelos golpes do clipe de combo (ATTACK_CLIP_MAP) e guarda de escudo (block_shield).
+@export var armed_clips := false
+## Dentro de `armed_clips`: usa os golpes dos clipes nas ações a1/a2/a3/air1/air2 (falso = só corrida e guarda).
+@export var armed_attack_clips := true
 @export_group("Proporções")
 ## Esboço do corpo (alturas, comprimentos e larguras em cabeças). Vazio: padrão de 8 cabeças,
 ## masculino ou feminino conforme `feminine`.
@@ -278,6 +288,8 @@ func set_dodge(progress: float, dir_world := Vector3.ZERO) -> void:
 
 
 func set_guard(with_shield := false) -> void:
+	if _mode != Mode.GUARD:
+		_guard_start = _time
 	_mode = Mode.GUARD
 	_guard_shield = with_shield
 
@@ -380,6 +392,12 @@ func _compute_target(delta: float) -> Dictionary:
 func _compute_target_inner() -> Dictionary:
 	match _mode:
 		Mode.ATTACK:
+			var ac := _attack_clip(_atk_anim)
+			if ac != null:
+				var cp := _from_clip(ac, _attack_u(ac))
+				cp["root"] = Vector3.ZERO # o golpe é movido pela física (avanço/lunge), o clipe só pose
+				_take_extra(cp)
+				return cp
 			return Poses.attack(_atk_anim, _atk.x, _atk.y, _atk.z, _atk.w, _atk_from)
 		Mode.DODGE:
 			var dp := _mocap_dodge()
@@ -387,6 +405,15 @@ func _compute_target_inner() -> Dictionary:
 				return dp
 			return Poses.dodge(_progress)
 		Mode.GUARD:
+			if armed_clips and _guard_shield:
+				var gc := _clip("block_shield")
+				if gc != null and gc.markers.has("impact"):
+					# Levanta o escudo (0,15 s) e segura na pose de bloqueio do clipe.
+					var gu := lerpf(0.0, float(gc.markers["impact"]), clampf((_time - _guard_start) / 0.15, 0.0, 1.0))
+					var gp := _from_clip(gc, gu)
+					gp["root"] = Vector3(0, -0.16 + sin(_time * 2.5) * 0.006, 0)
+					_take_extra(gp)
+					return gp
 			return Poses.guard(_time, _guard_shield)
 		Mode.HURT:
 			return Poses.hurt(_progress, _hurt_dir)
@@ -889,7 +916,61 @@ func _orient_feet(walking: bool) -> void:
 # --- Captura de movimento -------------------------------------------------------------
 
 func _clip(clip_name: String) -> AnimClip:
-	return AnimClip.get_clip(clip_name) if use_mocap else null
+	if not use_mocap:
+		return null
+	if clip_prefix != "":
+		var own := AnimClip.get_clip(clip_prefix + clip_name)
+		if own != null:
+			return own
+	return AnimClip.get_clip(clip_name)
+
+
+## Golpes procedurais que, no personagem `armed_clips`, tocam um golpe de um clipe com vários golpes:
+## anim -> [clipe, índice em markers.hits].
+const ATTACK_CLIP_MAP := {
+	"a1": ["combo_melee", 0], "a2": ["combo_melee", 1], "a3": ["combo_melee", 2],
+	"air1": ["jump_attack", 1], "air2": ["jump_attack", 2],
+}
+## Tempo de clipe (s) mostrado antes e depois do trecho ativo de um golpe de clipe com vários golpes.
+const HIT_WIND := 0.3
+const HIT_REC := 0.35
+var _guard_start := 0.0
+
+
+## Clipe de golpe/skill (não cíclico, com trecho ativo "start".."end") para a animação `anim`; null = pose procedural.
+func _attack_clip(anim: String) -> AnimClip:
+	var nm := anim
+	if armed_clips and armed_attack_clips and ATTACK_CLIP_MAP.has(anim):
+		nm = ATTACK_CLIP_MAP[anim][0]
+		var mc := _clip(nm)
+		return mc if mc != null and mc.markers.has("hits") and (mc.markers["hits"] as Array).size() > int(ATTACK_CLIP_MAP[anim][1]) else null
+	var c := _clip(nm)
+	return c if c != null and not c.loop and c.markers.has("start") and c.markers.has("end") else null
+
+
+## Fração do clipe para o tempo do golpe: preparação -> até "start"; fase ativa -> "start".."end"; recuperação -> resto.
+## Clipe de vários golpes: usa o golpe `hits[i]` e só um pedaço do clipe antes e depois dele.
+func _attack_u(c: AnimClip) -> float:
+	var s := float(c.markers["start"])
+	var e := float(c.markers["end"])
+	var lo := 0.0
+	var hi := 1.0
+	if armed_clips and armed_attack_clips and ATTACK_CLIP_MAP.has(_atk_anim) and c.markers.has("hits"):
+		var h: Array = (c.markers["hits"] as Array)[int(ATTACK_CLIP_MAP[_atk_anim][1])]
+		s = float(h[0])
+		e = float(h[1])
+		var dur := maxf(c.duration(), 0.1)
+		lo = maxf(s - HIT_WIND / dur, 0.0)
+		hi = minf(e + HIT_REC / dur, 1.0)
+	var startup := _atk.x
+	var active := _atk.y
+	var recovery := _atk.z
+	var t := _atk.w
+	if t < startup:
+		return lerpf(lo, s, clampf(t / maxf(startup, 0.001), 0.0, 1.0))
+	if t < startup + active:
+		return lerpf(s, e, clampf((t - startup) / maxf(active, 0.001), 0.0, 1.0))
+	return lerpf(e, hi, clampf((t - startup - active) / maxf(recovery, 0.001), 0.0, 1.0))
 
 
 ## Pé i (0 = esquerdo) apoiado no chão agora (ciclo de passos).
@@ -934,7 +1015,15 @@ func _update_loco_weights() -> void:
 		return
 	var list: Array = []
 	for nm in LOCO_CLIPS:
-		var c := _clip(nm)
+		var c: AnimClip = null
+		if clip_only_prefixed and clip_prefix != "":
+			c = AnimClip.get_clip(clip_prefix + nm)
+		elif armed_clips and nm == "jog" and (offhand == Offhand.SHIELD or weapon != Weapon.NONE):
+			c = _clip("run_shield" if offhand == Offhand.SHIELD else "run_sword")
+			if c == null:
+				c = _clip(nm)
+		else:
+			c = _clip(nm)
 		if c != null and c.speed > 0.01 and c.cycle_dist > 0.01:
 			list.append([c, c.speed * hip_y * height])
 	if list.is_empty():
