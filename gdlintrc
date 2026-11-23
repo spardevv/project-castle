@@ -1,0 +1,16 @@
+# gdlint (gdtoolkit 4.x) ajustado ao estilo do Project Castle.
+# Uso: gdlint <arquivos.gd>   (instalar: pip install --user gdtoolkit)
+# Os limites de tamanho ficam folgados de propósito: o objetivo é pegar erros reais
+# (argumento não usado, load duplicado, tabs/espaços misturados), não reescrever o código existente.
+disable:
+- class-definitions-order
+- max-line-length
+excluded_directories: !!set
+  .git: null
+  .godot: null
+  addons: null
+function-variable-name: '[a-zA-Z][a-zA-Z0-9]*(_[a-zA-Z0-9]+)*'
+max-file-lines: 2500
+max-line-length: 160
+max-public-methods: 60
+max-returns: 15
