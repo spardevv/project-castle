@@ -1,19 +1,22 @@
 extends PlayerState
 ## Banido (skill Banimento do mago usada no próprio jogador, sem inimigos por perto): por até MAX_TIME s o
-## jogador vira névoa verde, não interage com nada (não é atingido, não ataca) e flutua atravessando
-## paredes — para alcançar locais secretos. Apertar a skill de novo (LB + botão) o traz de volta quando
-## ele NÃO está dentro de uma parede; no fim do tempo, sai assim que houver espaço.
+## jogador vira névoa verde, não interage com nada (não é atingido, não ataca) e flutua. Colide com o
+## cenário normal (chão, teto, paredes externas) e só atravessa paredes secretas (SecretWall), que ficam
+## reveladas enquanto dura o banimento; também não sobe mais que MAX_RISE acima do chão logo abaixo dele
+## (para não escapar por cima das paredes; saindo de um degrau, desce). Apertar a skill de novo (LB + botão) o traz de volta quando ele NÃO
+## está dentro de uma parede secreta; no fim do tempo, sai assim que houver espaço.
 
 const MAX_TIME := Summon.BANISH_TIME
 const SPEED := 6.0
 const VERTICAL := 4.0
+## Altura máxima (m) que pode subir acima do chão logo abaixo dele.
+const MAX_RISE := 2.5
 const MIST := Color(0.45, 1.0, 0.6)
 const GHOST_ALPHA := 0.6
 
 var _t := 0.0
 var _meshes: Array[Node] = []
 var _mist: CPUParticles3D
-var _saved_mask := 0
 var _warn := 0.0
 
 
@@ -25,8 +28,7 @@ func enter(_msg: Dictionary = {}) -> void:
 	p.lock_target = null
 	p.health.invulnerable = true
 	p.contact_enabled = false
-	_saved_mask = p.collision_mask
-	p.collision_mask = 0
+	SecretWall.set_passable(p, true)
 	var hb := p.get_node_or_null("Hurtbox") as Area3D
 	if hb != null:
 		hb.set_deferred("monitorable", false)
@@ -67,7 +69,7 @@ func exit() -> void:
 	if is_instance_valid(_mist):
 		_mist.queue_free()
 	p.rig.set_glow(Color.BLACK)
-	p.collision_mask = _saved_mask
+	SecretWall.set_passable(p, false)
 	p.contact_enabled = true
 	p.health.invulnerable = false
 	var hb := p.get_node_or_null("Hurtbox") as Area3D
@@ -87,8 +89,13 @@ func physics_update(delta: float) -> void:
 	p.velocity.x = move_toward(p.velocity.x, dir.x * SPEED, 40.0 * delta)
 	p.velocity.z = move_toward(p.velocity.z, dir.z * SPEED, 40.0 * delta)
 	p.velocity.y = move_toward(p.velocity.y, up * VERTICAL, 30.0 * delta)
+	var max_y := _ceiling_y()
+	if p.global_position.y > max_y + 0.05:
+		p.velocity.y = minf(p.velocity.y, -VERTICAL)
+	elif p.global_position.y >= max_y and p.velocity.y > 0.0:
+		p.velocity.y = 0.0
 	p.update_facing(dir, delta)
-	p.move_and_slide() # sem máscara de colisão: atravessa tudo
+	p.move_and_slide() # colide com o cenário; as paredes secretas são exceções de colisão
 	p.rig.set_motion(Vector2(p.velocity.x, p.velocity.z).length(), true, 0.0)
 	p.rig.set_glow(MIST * (0.3 + 0.12 * sin(_t * 3.0)))
 	_warn = maxf(_warn - delta, 0.0)
@@ -96,7 +103,23 @@ func physics_update(delta: float) -> void:
 		try_exit(true)
 
 
-## Tenta voltar ao plano normal. Dentro de uma parede/objeto sólido não dá: continua banido até haver espaço.
+## Altura máxima do jogador: MAX_RISE acima do chão logo abaixo (ignora as paredes secretas). Sem chão
+## abaixo, não deixa subir além de onde está.
+func _ceiling_y() -> float:
+	var p := player
+	var from := p.global_position + Vector3(0, 0.5, 0)
+	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 60.0, p.collision_mask)
+	var ex: Array[RID] = [p.get_rid()]
+	for w in p.get_tree().get_nodes_in_group("secret_wall"):
+		ex.append((w as CollisionObject3D).get_rid())
+	q.exclude = ex
+	var hit := p.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return p.global_position.y
+	return (hit["position"] as Vector3).y + MAX_RISE
+
+
+## Tenta voltar ao plano normal. Dentro de uma parede secreta/objeto sólido não dá: continua banido até haver espaço.
 func try_exit(quiet := false) -> bool:
 	var p := player
 	if _blocked():
@@ -111,6 +134,7 @@ func try_exit(quiet := false) -> bool:
 
 
 ## Há cenário sólido dentro do corpo do jogador? Usa uma cápsula um pouco menor, para encostar no chão não contar.
+## A consulta ignora as exceções de colisão, então detecta as paredes secretas que ele está atravessando.
 func _blocked() -> bool:
 	var p := player
 	var cs := p.get_node_or_null("CollisionShape3D") as CollisionShape3D
@@ -122,6 +146,6 @@ func _blocked() -> bool:
 	var q := PhysicsShapeQueryParameters3D.new()
 	q.shape = cap
 	q.transform = cs.global_transform
-	q.collision_mask = _saved_mask
+	q.collision_mask = p.collision_mask
 	q.exclude = [p.get_rid()]
 	return not p.get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()

@@ -42,6 +42,20 @@ func _park(e: Enemy, pos: Vector3) -> void:
 	e.machine.change_to(&"Idle")
 
 
+## Move o jogador banido a partir de `start` na direção `dir` (e sobe/desce com `up`) por `n` quadros, como se
+## fosse o controle, e devolve onde ele parou.
+func _drive(start: Vector3, dir: Vector3, up: float, n: int) -> Vector3:
+	player.global_position = start
+	player.velocity = Vector3.ZERO
+	for i in n:
+		player.velocity.x = dir.x * 6.0
+		player.velocity.z = dir.z * 6.0
+		if up != 0.0:
+			player.velocity.y = up * 4.0
+		await get_tree().physics_frame
+	return player.global_position
+
+
 func _summon(kind: StringName) -> void:
 	if is_instance_valid(summon):
 		summon.queue_free()
@@ -244,7 +258,7 @@ func _mage() -> void:
 	check("inimigo banido", grunts[0].is_banished() and not grunts[0].is_in_group("enemy"))
 	check("recarga travada enquanto banido", float(summon.skills[0]["timer"]) > 1000.0)
 	check("translúcido", (grunts[0].rig.find_children("*", "MeshInstance3D", true, false)[0] as GeometryInstance3D).transparency > 0.3)
-	check("sem colisão (atravessa paredes)", grunts[0].collision_mask == 0)
+	check("colide só com o cenário (não cai pelo chão)", grunts[0].collision_mask == Enemy.BODY_MASK and grunts[0].collision_layer == 0)
 	var hp_b := grunts[0].health.current
 	var hit := HitData.new()
 	hit.damage = 20
@@ -276,13 +290,26 @@ func _mage() -> void:
 	check("jogador banido", player.is_banished())
 	check("sem recarga no jogador", float(summon.skills[0]["timer"]) == 0.0)
 	check("não leva dano", not player.health.take_hit(HitData.new()))
-	player.velocity = Vector3(8, 0, 0)
-	player.global_position = Vector3(29.0, 0.5, 0)
-	await _frames(60)
-	check("atravessa a parede", player.global_position.x > 29.5 or player.is_banished())
+	var banished_state: Node = player.machine.states["Banished"]
+	var pos1: Vector3 = await _drive(Vector3(0, 0.1, 0), Vector3.ZERO, -1.0, 60)
+	check("não atravessa o chão", pos1.y > -0.3)
+	var pos2: Vector3 = await _drive(Vector3(0, 0.1, 0), Vector3.ZERO, 1.0, 150)
+	check("não sobe além de 2,5 m do chão", pos2.y < 2.7)
+	var pos3: Vector3 = await _drive(Vector3(27.0, 0.1, 0), Vector3.RIGHT, 0.0, 90)
+	check("não atravessa a parede externa", pos3.x < 29.6)
+	var secret := get_tree().get_first_node_in_group("secret_wall") as SecretWall
+	check("parede secreta revelada", secret != null and secret._mat.emission_enabled)
+	var pos4: Vector3 = await _drive(Vector3(27.0, 0.1, -21.0), Vector3.FORWARD, 0.0, 90)
+	check("não atravessa a parede comum da sala secreta", pos4.z > -23.6)
+	var pos5: Vector3 = await _drive(Vector3(21.0, 0.1, -27.0), Vector3.RIGHT, 0.0, 90)
+	check("atravessa a parede secreta", pos5.x > 25.0)
+	player.global_position = Vector3(24.0, 0.1, -27.0)
+	await _frames(2)
+	check("não sai de dentro da parede secreta", not banished_state.call("try_exit", true) and player.is_banished())
 	player.global_position = Vector3(0, 0.0, 0)
 	await _frames(5)
 	check("sai apertando a skill de novo (pés no chão)", summon.use_skill(0) and not player.is_banished())
+	check("parede secreta volta a bloquear", not secret._mat.emission_enabled and player.get_collision_exceptions().is_empty())
 	await _frames(20)
 
 	print("== mago: orbes (passiva)")

@@ -17,7 +17,7 @@ Dica: passe `--log-file arquivo.log` e leia o log (stdout pode não aparecer).
 | `charge_probe` | headless | ataque carregado (estâncias) e arte do martelo — [[Ataque carregado]], [[Arte da arma]] |
 | `feature_probe` | headless | roteiro: lock-on, arte, parry, flechas, brutamontes, skills do summon |
 | `gear_probe` | headless | escudo (stance, −75%), martelo, sacerdote, buffs — [[Escudo]] |
-| `summon_kit_probe` | headless (`--fixed-fps 60`) | kit inicial dos 3 summons: chegada, básicos, skill ativa e passiva (57 verificações) |
+| `summon_kit_probe` | headless (`--fixed-fps 60`) | kit inicial dos 3 summons: chegada, básicos, skill ativa e passiva, banimento × paredes secretas (64 verificações) |
 | `spawn_probe` / `summon_probe` / `summon_entry_probe` | headless | posicionamento, passivas, entrada/saída do summon — [[Summons]] |
 | `pose_sheet` | **janela** | folhas de pose em PNG (6 momentos × 3/4 e perfil). Filtros: `hm:` (martelo), `sh:` (escudo), `sp:` (lança; `sp_` pega os golpes da lança), folha `move_idle` — [[Poses e molas]] |
 | `slide_probe` | headless | mede o deslize dos pés apoiados (m/s) em 1,5–7 m/s; ideal ≈ 0 — [[Rig humanoide]] |

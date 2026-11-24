@@ -1,7 +1,8 @@
 extends EnemyState
 ## Banido para um plano alternativo (skill Banimento do mago). Durante BANISH_TIME s o inimigo:
 ##  - tem qualquer ação/skill cancelada (entrar neste estado interrompe o estado anterior);
-##  - não interage com nada: não é alvo, não sofre dano nem empurra ninguém, atravessa paredes;
+##  - não interage com nada: não é alvo, não sofre dano nem empurra ninguém; continua colidindo com o
+##    cenário (não cai pelo chão) e só atravessa paredes secretas (SecretWall);
 ##  - fica translúcido como uma névoa verde.
 ## Ao voltar, criaturas grandes (sem lançamento / com armadura constante) ficam atordoadas por
 ## metade do tempo do banimento. O mago só recebe a recarga da skill agora (Summon.banish_finished).
@@ -34,8 +35,9 @@ func enter(msg: Dictionary = {}) -> void:
 	en.hurtbox.set_deferred("monitorable", false)
 	_saved_mask = en.collision_mask
 	_saved_layer = en.collision_layer
-	en.collision_mask = 0
+	en.collision_mask = Enemy.BODY_MASK # só o cenário
 	en.collision_layer = 0
+	SecretWall.set_passable(en, true)
 	var p := en.get_player()
 	if p != null and p.get("lock_target") == en:
 		p.set("lock_target", null)
@@ -58,6 +60,7 @@ func exit() -> void:
 		_mist.queue_free()
 	en.collision_mask = _saved_mask
 	en.collision_layer = _saved_layer
+	SecretWall.set_passable(en, false)
 	en.contact_enabled = true
 	if not en.is_in_group("enemy"):
 		en.add_to_group("enemy")
