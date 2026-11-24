@@ -1,0 +1,194 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://player/player.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://player/camera_rig.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://enemies/enemy.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://ui/hud.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://ui/equipment_menu.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="8"]
+[ext_resource type="Script" path="res://levels/heavy_door.gd" id="9_door"]
+[ext_resource type="Script" path="res://levels/enchanted_chest.gd" id="10_chest"]
+[ext_resource type="Script" path="res://levels/secret_wall.gd" id="11_secret"]
+
+[sub_resource type="ProceduralSkyMaterial" id="Sky_mat"]
+sky_top_color = Color(0.16, 0.2, 0.34, 1)
+sky_horizon_color = Color(0.58, 0.46, 0.42, 1)
+ground_bottom_color = Color(0.12, 0.11, 0.12, 1)
+ground_horizon_color = Color(0.45, 0.38, 0.36, 1)
+sun_angle_max = 20.0
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("Sky_mat")
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+ambient_light_source = 3
+ambient_light_sky_contribution = 0.85
+ambient_light_energy = 0.7
+reflected_light_source = 2
+tonemap_mode = 4
+tonemap_exposure = 1.05
+ssao_enabled = true
+ssao_radius = 0.8
+ssao_intensity = 1.6
+ssao_power = 1.4
+glow_enabled = true
+glow_intensity = 0.45
+glow_bloom = 0.04
+glow_blend_mode = 1
+fog_enabled = true
+fog_light_color = Color(0.36, 0.32, 0.36, 1)
+fog_density = 0.004
+adjustment_enabled = true
+adjustment_contrast = 1.05
+adjustment_saturation = 1.05
+
+[sub_resource type="StandardMaterial3D" id="Mat_floor"]
+albedo_color = Color(0.35, 0.35, 0.38, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_block"]
+albedo_color = Color(0.5, 0.45, 0.4, 1)
+
+[node name="SummonTrial" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8660, -0.4415, 0.2347, 0.0000, 0.4695, 0.8829, -0.5000, -0.7647, 0.4066, 0, 10, 0)
+light_color = Color(1, 0.92, 0.8, 1)
+light_energy = 1.6
+shadow_enabled = true
+shadow_blur = 1.5
+directional_shadow_max_distance = 40.0
+
+[node name="RimLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.9397, 0.1445, -0.3100, 0.0000, 0.9063, 0.4226, 0.3420, 0.3971, -0.8517, 0, 10, 0)
+light_color = Color(0.55, 0.66, 1, 1)
+light_energy = 0.8
+light_specular = 0.7
+
+[node name="Floor" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -24)
+use_collision = true
+size = Vector3(16, 1, 61)
+material = SubResource("Mat_floor")
+
+[node name="WallWest" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 3, -24)
+use_collision = true
+size = Vector3(1, 6, 61)
+material = SubResource("Mat_block")
+
+[node name="WallEast" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 3, -24)
+use_collision = true
+size = Vector3(1, 6, 61)
+material = SubResource("Mat_block")
+
+[node name="WallSouth" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 6)
+use_collision = true
+size = Vector3(16, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="WallNorth" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -54)
+use_collision = true
+size = Vector3(16, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="Gate1Left" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 3, -14)
+use_collision = true
+size = Vector3(6, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="Gate1Right" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 3, -14)
+use_collision = true
+size = Vector3(6, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="Gate1Top" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -14)
+use_collision = true
+size = Vector3(4, 2, 1)
+material = SubResource("Mat_block")
+
+[node name="Gate2Left" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 3, -30)
+use_collision = true
+size = Vector3(6, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="Gate2Right" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 3, -30)
+use_collision = true
+size = Vector3(6, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="Gate2Top" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -30)
+use_collision = true
+size = Vector3(4, 2, 1)
+material = SubResource("Mat_block")
+
+[node name="HiddenLeft" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 3, -44)
+use_collision = true
+size = Vector3(6, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="HiddenRight" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 3, -44)
+use_collision = true
+size = Vector3(6, 6, 1)
+material = SubResource("Mat_block")
+
+[node name="SecretWall" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -44)
+script = ExtResource("11_secret")
+size = Vector3(4, 6, 1)
+
+[node name="HeavyDoor" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -14)
+script = ExtResource("9_door")
+
+[node name="ChestSkill" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -24)
+script = ExtResource("10_chest")
+reward_skill = &"quake"
+chest_id = &"trial_chest_quake"
+
+[node name="ChestHeal" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, 0, -27)
+script = ExtResource("10_chest")
+reward_kind = "heal"
+chest_id = &"trial_chest_heal"
+
+[node name="ChestHidden" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -50)
+script = ExtResource("10_chest")
+reward_skill = &"blast"
+chest_id = &"trial_chest_blast"
+
+[node name="Player" parent="." instance=ExtResource("1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 3)
+spawn_facing_degrees = 180.0
+
+[node name="CameraRig" parent="." node_paths=PackedStringArray("target") instance=ExtResource("2")]
+target = NodePath("../Player")
+
+[node name="Grunt1" parent="." instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.5, -8)
+
+[node name="Grunt2" parent="." instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.5, -8)
+
+[node name="EquipmentMenu" parent="." instance=ExtResource("7")]
+
+[node name="HUD" parent="." instance=ExtResource("4")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("8")]

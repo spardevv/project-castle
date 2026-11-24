@@ -6,8 +6,9 @@ extends RefCounted
 ##    Sacerdote (prefixo p_): por condição (vida do jogador, buffs ativos, grupo de inimigos...).
 ##
 ## No início cada summon tem UMA skill ativa (GOLEM/PRIEST/MAGE_CHOICES), ataques básicos, a skill de
-## chegada (arrive.gd) e UMA passiva. As demais entradas das tabelas ficam guardadas para serem
-## liberadas depois: basta incluí-las nas listas *_CHOICES.
+## chegada (arrive.gd) e UMA passiva. As demais entradas ficam nas listas *_LOCKED e são liberadas por
+## recompensas no mundo (baú encantado, etc.) com unlock()/unlock_passive(); o desbloqueio fica em
+## GameState.abilities (chaves skill_<id> / passive_<id>) e choices_for() passa a oferecê-las no menu.
 
 ## Intervalo da benção passiva do sacerdote (s).
 const BLESSING_COOLDOWN := 35.0
@@ -30,17 +31,21 @@ const LIBRARY := {
 	&"smite": {"name": "Julgamento", "cooldown": 9.0, "desc": "Dano: coluna de luz sobre o inimigo travado (ou o mais próximo)."},
 	&"nova": {"name": "Nova sagrada", "cooldown": 13.0, "desc": "Dano: explosão de luz em volta do sacerdote que empurra os inimigos."},
 	# --- Mago ---
-	&"banish": {"name": "Banimento", "cooldown": 30.0, "desc": "Bane o alvo (travado ou mais próximo) para um plano alternativo por 20 s: ele não interage com nada, atravessa paredes e vira névoa verde. Cancela a ação do inimigo; criaturas grandes ficam atordoadas por metade do tempo. Recarga de 30 s só depois que o banimento acaba. Sem inimigos por perto, bane o jogador (sem recarga; aperte de novo para sair), para acessar locais secretos."},
+	&"banish": {"name": "Banimento", "cooldown": 30.0, "desc": "Bane o alvo (travado ou mais próximo) para um plano alternativo por 20 s: ele não interage com nada e vira névoa verde. Cancela a ação do inimigo; criaturas grandes ficam atordoadas por metade do tempo. Recarga de 30 s só depois que o banimento acaba. Sem inimigos por perto, bane o jogador (sem recarga; aperte de novo para sair): ele atravessa paredes secretas para acessar locais escondidos."},
 	&"blast": {"name": "Explosão arcana", "cooldown": 5.0, "desc": "Lança uma bola de fogo no inimigo travado (ou no mais próximo) que explode em área."},
 	&"frostnova": {"name": "Nova gélida", "cooldown": 11.0, "desc": "Onda de gelo em volta do mago: dano em área e lentidão nos inimigos próximos."},
 	&"storm": {"name": "Tempestade", "cooldown": 13.0, "desc": "Chama vários raios sobre os inimigos num raio de 11 m; cada um explode em área."},
 	&"meteor": {"name": "Chuva de meteoros", "cooldown": 20.0, "desc": "Marca o chão e faz três meteoros caírem sobre os inimigos: dano pesado em área, com atraso."},
 }
 
-## Skills ativas oferecidas no menu (por enquanto só uma por summon; o resto da LIBRARY será liberado depois).
+## Skills ativas do kit inicial (sempre oferecidas no menu).
 const GOLEM_CHOICES: Array[StringName] = [&"grab"]
 const MAGE_CHOICES: Array[StringName] = [&"banish"]
 const PRIEST_CHOICES: Array[StringName] = [&"heal"]
+## Skills ativas guardadas: só aparecem no menu depois de liberadas (unlock).
+const GOLEM_LOCKED: Array[StringName] = [&"quake", &"taunt", &"punches", &"rock"]
+const MAGE_LOCKED: Array[StringName] = [&"blast", &"frostnova", &"storm", &"meteor"]
+const PRIEST_LOCKED: Array[StringName] = [&"ward", &"bless", &"haste", &"renew", &"hex", &"slow", &"smite", &"nova"]
 
 ## Golem: min/max = distância ao alvo; crowd = inimigos mínimos num raio de crowd_radius.
 ## Sacerdote (p_*): sem distância; a condição fica no estado de suporte.
@@ -71,18 +76,70 @@ const PASSIVES := {
 const GOLEM_PASSIVE_CHOICES: Array[StringName] = [&"rock"]
 const MAGE_PASSIVE_CHOICES: Array[StringName] = [&"m_orbs"]
 const PRIEST_PASSIVE_CHOICES: Array[StringName] = [&"p_blessing"]
+## Passivas guardadas (liberadas com unlock_passive).
+const GOLEM_PASSIVE_LOCKED: Array[StringName] = [&"slam", &"combo", &"spin"]
+const MAGE_PASSIVE_LOCKED: Array[StringName] = [&"m_bolt", &"m_frost", &"m_meteor", &"m_storm"]
+const PRIEST_PASSIVE_LOCKED: Array[StringName] = [&"p_aura", &"p_heal", &"p_renew", &"p_bless", &"p_ward", &"p_slow", &"p_smite"]
 
 
+## Skills ativas oferecidas no menu para o summon `kind`: kit inicial + as guardadas já liberadas.
 static func choices_for(kind: StringName) -> Array[StringName]:
 	if kind == &"mage":
-		return MAGE_CHOICES
-	return PRIEST_CHOICES if kind == &"priest" else GOLEM_CHOICES
+		return _with_unlocked(MAGE_CHOICES, MAGE_LOCKED, false)
+	if kind == &"priest":
+		return _with_unlocked(PRIEST_CHOICES, PRIEST_LOCKED, false)
+	return _with_unlocked(GOLEM_CHOICES, GOLEM_LOCKED, false)
 
 
+## Passivas oferecidas no menu para o summon `kind`: a inicial + as guardadas já liberadas.
 static func passive_choices_for(kind: StringName) -> Array[StringName]:
 	if kind == &"mage":
-		return MAGE_PASSIVE_CHOICES
-	return PRIEST_PASSIVE_CHOICES if kind == &"priest" else GOLEM_PASSIVE_CHOICES
+		return _with_unlocked(MAGE_PASSIVE_CHOICES, MAGE_PASSIVE_LOCKED, true)
+	if kind == &"priest":
+		return _with_unlocked(PRIEST_PASSIVE_CHOICES, PRIEST_PASSIVE_LOCKED, true)
+	return _with_unlocked(GOLEM_PASSIVE_CHOICES, GOLEM_PASSIVE_LOCKED, true)
+
+
+static func _with_unlocked(base: Array[StringName], locked: Array[StringName], passive: bool) -> Array[StringName]:
+	var out: Array[StringName] = base.duplicate()
+	for id in locked:
+		if is_passive_unlocked(id) if passive else is_unlocked(id):
+			out.append(id)
+	return out
+
+
+## Chave em GameState.abilities que marca a skill ativa `id` como liberada.
+static func unlock_key(id: StringName) -> StringName:
+	return StringName("skill_" + String(id))
+
+
+## Chave em GameState.abilities que marca a passiva `id` como liberada.
+static func passive_unlock_key(id: StringName) -> StringName:
+	return StringName("passive_" + String(id))
+
+
+static func is_unlocked(id: StringName) -> bool:
+	return GameState.has_ability(unlock_key(id))
+
+
+static func is_passive_unlocked(id: StringName) -> bool:
+	return GameState.has_ability(passive_unlock_key(id))
+
+
+## Libera a skill ativa `id` (recompensa do mundo). Retorna false se o id não existe ou já estava liberado.
+static func unlock(id: StringName) -> bool:
+	if not LIBRARY.has(id) or is_unlocked(id):
+		return false
+	GameState.unlock_ability(unlock_key(id))
+	return true
+
+
+## Libera a passiva `id`. Retorna false se o id não existe ou já estava liberado.
+static func unlock_passive(id: StringName) -> bool:
+	if not PASSIVES.has(id) or is_passive_unlocked(id):
+		return false
+	GameState.unlock_ability(passive_unlock_key(id))
+	return true
 
 
 static func name_of(id: StringName) -> String:

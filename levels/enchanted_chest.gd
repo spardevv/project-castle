@@ -2,11 +2,23 @@ class_name EnchantedChest
 extends Node3D
 ## Baú encantado: só abre se o jogador estiver com o Sacerdote invocado (e a Benção equipada) e apertar o
 ## botão de interação perto dele. Fica no grupo "interactable"; o Player chama interact(player).
-## Ainda não há itens: emite `opened` para a recompensa ser ligada depois.
+## Recompensa configurável: `reward_kind = "skill"` libera uma skill guardada de summon (SummonSkills.unlock /
+## unlock_passive) e `"heal"` cura o jogador. Com `chest_id`, fica aberto entre recargas da cena
+## (GameState.world_flags). Sempre emite `opened`.
 
 signal opened(by: Node3D)
 
 const HINT_RANGE := 3.2
+const GOLD := Color(1.0, 0.9, 0.5)
+
+@export_enum("skill", "heal") var reward_kind: String = "skill"
+## Id da skill ativa (SummonSkills.LIBRARY) ou passiva (SummonSkills.PASSIVES, com `reward_is_passive`).
+@export var reward_skill: StringName = &""
+@export var reward_is_passive := false
+## Fração da vida máxima curada quando `reward_kind = "heal"`.
+@export_range(0.0, 1.0) var heal_fraction := 1.0
+## Id para lembrar que este baú já foi aberto (vazio = não lembra).
+@export var chest_id: StringName = &""
 
 var is_open := false
 
@@ -53,6 +65,9 @@ func _ready() -> void:
 	_hint.position = Vector3(0, 1.6, 0)
 	_hint.visible = false
 	add_child(_hint)
+	if chest_id != &"" and GameState.world_flags.get(chest_id, false):
+		is_open = true
+		_lid.rotation_degrees.x = -100.0
 
 
 func _process(_delta: float) -> void:
@@ -63,7 +78,7 @@ func _process(_delta: float) -> void:
 	_hint.visible = true
 	if _priest_present(p):
 		_hint.text = "[%s] Abrir" % InputGlyphs.label(&"interact")
-		_hint.modulate = Color(1.0, 0.9, 0.5)
+		_hint.modulate = GOLD
 	else:
 		_hint.text = "Baú encantado\n(precisa do Sacerdote)"
 		_hint.modulate = Color(0.75, 0.7, 0.9)
@@ -89,5 +104,25 @@ func interact(by: Node3D) -> bool:
 	Fx.burst(self, global_position + Vector3(0, 0.8, 0), 1.6, Color(1.0, 0.9, 0.5), 0.6)
 	var tw := create_tween()
 	tw.tween_property(_lid, "rotation_degrees:x", -100.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if chest_id != &"":
+		GameState.world_flags[chest_id] = true
+	_give_reward(by)
 	opened.emit(by)
 	return true
+
+
+## Entrega a recompensa e mostra o que foi ganho flutuando sobre o baú.
+func _give_reward(by: Node3D) -> void:
+	var text := ""
+	if reward_kind == "heal":
+		var hp: Health = by.get("health") as Health
+		if hp != null:
+			hp.heal(ceili(hp.max_health * heal_fraction))
+		text = "Vida restaurada"
+	elif reward_is_passive:
+		if SummonSkills.unlock_passive(reward_skill):
+			text = "Nova passiva: %s" % SummonSkills.passive_name(reward_skill)
+	elif SummonSkills.unlock(reward_skill):
+		text = "Nova skill: %s" % SummonSkills.name_of(reward_skill)
+	if text != "":
+		Fx.damage_number(self, global_position + Vector3(0, 1.8, 0), 0, GOLD, text)

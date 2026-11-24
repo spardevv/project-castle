@@ -34,7 +34,7 @@ Voltar ao [[00 - Início]].
 
 ## Mundo
 - [[Inimigos]]: [[Grunt]] · [[Brutamontes]] · [[Arqueiro]] → [[IA dos inimigos]]
-- [[Summons]]: [[Golem]] · [[Sacerdote]] → [[Skills do summon]]
+- [[Summons]]: [[Golem]] · [[Sacerdote]] · [[Mago]] → [[Skills do summon]] → [[Exploração com summons]]
 
 ## Meta
 - [[HUD]] · [[Ferramentas de teste]]

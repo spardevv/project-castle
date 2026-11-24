@@ -27,5 +27,6 @@ por **LB + botão** ([[Skills do summon]]).
 - Cooldown de invocação: **8 s** ao dispensar, **14 s** se morre.
 - Passivas escolhem o golpe pela distância e quantidade de inimigos (`pick_passive`).
 - Cada summon começa com **uma skill ativa, ataques básicos, skill de chegada e uma passiva** ([[Skills do summon]]; o [[Mago]] tem a sua página).
+- As outras skills são liberadas por recompensas no mundo; cada summon resolve um obstáculo de exploração ([[Exploração com summons]]).
 - Cada summon guarda **seus próprios slots** no `GameState`; os timers das skills são preservados ao trocar o loadout.
 - Chegada e saída são invulneráveis e animadas.

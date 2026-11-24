@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Validação do Project Castle: lint, node_paths em .tscn, carga no editor (headless) e testes GUT.
-# Uso (Git Bash, na raiz do projeto): bash .claude/skills/validar/validate.sh [--all] [--probe <nome>]
-#   --all          lint/checagem em todos os arquivos (padrão: só os alterados desde o HEAD + não versionados)
-#   --probe nome   roda também res://tools/<nome>.tscn headless e mostra o fim do log
+# Uso (Git Bash, na raiz do projeto):
+#   bash .claude/skills/validar/validate.sh [--all] [--probe <nome> [--fixed-fps N] [--quit-after N]]
+#   --all            lint/checagem em todos os arquivos (padrão: só os alterados desde o HEAD + não versionados)
+#   --probe nome     roda também res://tools/<nome>.tscn headless e mostra o fim do log; falha se a probe
+#                    sair com código != 0, tiver linha "FAIL " ou erro de script
+#   --fixed-fps N    passa --fixed-fps N para a probe (summon_kit_probe e summon_trial_probe precisam de 60)
+#   --quit-after N   limite de quadros da probe (padrão 4500)
 set -u
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
@@ -11,11 +15,13 @@ GDLINT="${APPDATA:-}/Python/Python313/Scripts/gdlint.exe"
 OUT="${TMPDIR:-${TEMP:-/tmp}}/castle-validate"
 mkdir -p "$OUT"
 
-ALL=0; PROBE=""
+ALL=0; PROBE=""; FIXED_FPS=""; QUIT_AFTER=4500
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--all) ALL=1 ;;
 		--probe) PROBE="$2"; shift ;;
+		--fixed-fps) FIXED_FPS="$2"; shift ;;
+		--quit-after) QUIT_AFTER="$2"; shift ;;
 	esac
 	shift
 done
@@ -81,8 +87,13 @@ fi
 
 if [ -n "$PROBE" ]; then
 	echo "== 5. probe $PROBE"
-	"$GODOT" --headless --path . "res://tools/$PROBE.tscn" --quit-after 4500 --log-file "$OUT/probe.log" >/dev/null 2>&1
-	grep -qE 'SCRIPT ERROR|ERROR:' "$OUT/probe.log" && FAIL=1
+	PROBE_ARGS=(--headless)
+	[ -n "$FIXED_FPS" ] && PROBE_ARGS+=(--fixed-fps "$FIXED_FPS")
+	"$GODOT" "${PROBE_ARGS[@]}" --path . "res://tools/$PROBE.tscn" --quit-after "$QUIT_AFTER" --log-file "$OUT/probe.log" >/dev/null 2>&1
+	PROBE_EXIT=$?
+	[ "$PROBE_EXIT" != 0 ] && { FAIL=1; echo "   probe saiu com código $PROBE_EXIT"; }
+	grep -qE 'SCRIPT ERROR|ERROR:|^ *FAIL ' "$OUT/probe.log" && FAIL=1
+	grep -nE 'SCRIPT ERROR|ERROR:|^ *FAIL ' "$OUT/probe.log" | head -20 | sed 's/^/   /'
 	tail -40 "$OUT/probe.log" | sed 's/^/   /'
 fi
 

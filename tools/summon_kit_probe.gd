@@ -32,7 +32,9 @@ func check(label: String, cond: bool) -> void:
 		print("  FAIL ", label)
 
 
+## Põe o inimigo em `pos` pronto para o teste (reativa se estava no banco).
 func _park(e: Enemy, pos: Vector3) -> void:
+	e.process_mode = Node.PROCESS_MODE_INHERIT
 	e.global_position = pos
 	e.velocity = Vector3.ZERO
 	e.attack_cd = 99.0
@@ -56,6 +58,17 @@ func _drive(start: Vector3, dir: Vector3, up: float, n: int) -> Vector3:
 	return player.global_position
 
 
+## Tira o inimigo do teste: canto noroeste dentro da arena (longe do jogador e dos alcances das skills),
+## parado com o processamento desligado. Antes ia para (60, 0.1, 60), fora do chão, e caía no vazio.
+func _bench(e: Enemy) -> void:
+	var i := get_tree().get_nodes_in_group("enemy").find(e)
+	e.velocity = Vector3.ZERO
+	e.global_position = Vector3(-27.0 + 1.6 * maxi(i, 0), 0.1, -27.0)
+	if e.health.current > 0 and not e.is_banished():
+		e.machine.change_to(&"Idle")
+	e.process_mode = Node.PROCESS_MODE_DISABLED
+
+
 func _summon(kind: StringName) -> void:
 	if is_instance_valid(summon):
 		summon.queue_free()
@@ -73,7 +86,7 @@ func _run() -> void:
 			brute = e
 		elif e.move_set == &"grunt":
 			grunts.append(e)
-		_park(e, Vector3(60 + randf() * 5, 0.1, 60))
+		_bench(e)
 	door = get_tree().get_first_node_in_group("heavy_door")
 	chest = get_tree().get_first_node_in_group("interactable")
 	player.global_position = Vector3(0, 0.1, 0)
@@ -129,7 +142,7 @@ func _golem() -> void:
 
 	print("== golem: agarrar (porta)")
 	for g in grunts:
-		_park(g, Vector3(60, 0.1, 60))
+		_bench(g)
 	summon.global_position = door.global_position + Vector3(0, -1.9, 5)
 	summon.velocity = Vector3.ZERO
 	await _frames(5)
@@ -153,12 +166,12 @@ func _golem() -> void:
 	grunts[1].velocity = Vector3.ZERO
 	check("prioriza o aéreo", summon.pick_rock_target() == grunts[0])
 	_park(grunts[0], summon.global_position + Vector3(0, 0, 8))
-	grunts[1].global_position = Vector3(60, 0.1, 60)
+	_bench(grunts[1])
 	summon.start_passive(&"rock")
 	await _frames(100)
 	check("pedra deixa o inimigo atordoado", grunts[0].machine.current_name() == "Stagger" or grunts[0].health.current < grunts[0].health.max_health)
 	check("cooldown 10 s", is_equal_approx(float(summon.passive_timers[&"rock"]), 10.0 - 100.0 / 60.0) or float(summon.passive_timers[&"rock"]) > 7.0)
-	_park(grunts[0], Vector3(60, 0.1, 60))
+	_bench(grunts[0])
 
 
 func _priest() -> void:
@@ -190,7 +203,7 @@ func _priest() -> void:
 	await _frames(30)
 	check("benção ativa no jogador", StatusEffects.has(player, &"blessing"))
 	check("benção: dano ×1,25 e armadura", is_equal_approx(StatusEffects.mult(player, "damage_out"), 1.25) and is_equal_approx(StatusEffects.mult(player, "damage_in"), 0.75))
-	_park(grunts[0], Vector3(60, 0.1, 60))
+	_bench(grunts[0])
 
 	print("== sacerdote: baú encantado")
 	player.global_position = chest.global_position + Vector3(0, 0.1, 2)
@@ -228,9 +241,9 @@ func _mage() -> void:
 	await _frames(120)
 	check("zona causa dano contínuo", grunts[0].health.current < hp)
 	check("zona causa lentidão", StatusEffects.has(grunts[0], &"slow"))
-	_park(grunts[0], Vector3(60, 0.1, 60))
+	_bench(grunts[0])
 	check("dano contínuo não faz cambalear", Health.dot(grunts[0], 3, null) and grunts[0].machine.current_name() == "Idle")
-	_park(grunts[0], Vector3(60, 0.1, 60))
+	_bench(grunts[0])
 	zone.queue_free()
 	await _frames(5)
 
@@ -244,7 +257,7 @@ func _mage() -> void:
 		if summon.machine.current_name() == "Skill":
 			seen_skill = true
 	check("dispara seta arcana", seen_skill and grunts[0].health.current < 900)
-	_park(grunts[0], Vector3(60, 0.1, 60))
+	_bench(grunts[0])
 
 	print("== mago: banimento em inimigo")
 	_park(grunts[0], player.global_position + Vector3(0, 0, -6))
@@ -270,17 +283,17 @@ func _mage() -> void:
 	check("inimigo comum não fica atordoado", grunts[0].machine.current_name() != "Stagger")
 	print("== mago: banimento em criatura grande")
 	summon.skills[0]["timer"] = 0.0
-	_park(grunts[0], Vector3(60, 0.1, 60))
+	_bench(grunts[0])
 	player.lock_target = brute
 	check("usa banimento no brutamontes", summon.use_skill(0))
 	await _frames(1240)
 	check("brutamontes volta atordoado", brute.machine.current_name() == "Stagger")
-	_park(brute, Vector3(60, 0.1, 60))
+	_bench(brute)
 	player.lock_target = null
 
 	print("== mago: banimento no jogador")
 	for g in grunts:
-		_park(g, Vector3(60, 0.1, 60))
+		_bench(g)
 	await _frames(90)
 	summon.skills[0]["timer"] = 0.0
 	player.global_position = Vector3(0, 0.1, 0)
