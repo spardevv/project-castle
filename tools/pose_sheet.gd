@@ -13,6 +13,7 @@ var _filter := ""
 var _hammer := false
 var _shield := false
 var _spear := false
+var _armed := false
 var _model: PackedScene
 
 
@@ -22,6 +23,9 @@ func _ready() -> void:
 		_out_dir = args[0]
 	if args.size() > 1:
 		_filter = args[1]
+	if _filter.begins_with("clip:"): # "clip:atk_a1" = jogador armado (clipes do Mixamo para golpes/corrida/guarda)
+		_filter = _filter.substr(5)
+		_armed = true
 	if _filter.begins_with("sh:"): # "sh:move_run" = folhas com escudo
 		_filter = _filter.substr(3)
 		_shield = true
@@ -71,6 +75,7 @@ func _build_stage() -> void:
 		for col in COLS:
 			var rig: HumanoidRig = RIG.instantiate()
 			rig.body_model = _model
+			rig.armed_clips = _armed
 			rig.offhand = HumanoidRig.Offhand.SHIELD if _shield else HumanoidRig.Offhand.ORB
 			if _hammer or _filter.contains("hm_"):
 				rig.offhand = HumanoidRig.Offhand.NONE
@@ -99,7 +104,7 @@ func _build_stage() -> void:
 
 func _render_all() -> void:
 	var two_handed := AttackData.two_handed_anims()
-	for anim in Poses.ATTACKS.keys() + Poses._spear_defs().keys():
+	for anim in Poses.ATTACKS.keys() + Poses._spear_defs().keys() + ["choke_lift", "heal", "magic_attack"]:
 		var prefix := "golem_atk_" if _filter.begins_with("golem") else "atk_"
 		await _sheet(prefix + anim, func(rig: HumanoidRig, i: int) -> void:
 			var su := 0.3

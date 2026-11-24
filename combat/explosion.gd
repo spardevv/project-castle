@@ -17,6 +17,9 @@ var instigator: Node3D
 @export var hits_player := false
 @export var knockback := 7.0
 @export var launch := 5.0
+## Duração do stun (hitstun) dos atingidos e se ignora a super armor (pedra do golem).
+@export var hitstun := 0.6
+@export var poise_break := false
 
 
 func _ready() -> void:
@@ -42,7 +45,8 @@ func _ready() -> void:
 	hit.damage = damage
 	hit.knockback = knockback
 	hit.launch = launch # levanta os alvos: viram juggle e caem derrubados
-	hit.hitstun = 0.6
+	hit.hitstun = hitstun
+	hit.poise_break = poise_break
 	hit.hitstop = 0.07
 	hit.freeze_attacker = false
 	activate(hit)

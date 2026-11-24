@@ -116,7 +116,7 @@ func _draw() -> void:
 			UiIcons.skill(self, id, c, SLOT * 0.33, accent * Color(1, 1, 1, 1.0 if (ready and active) else 0.4))
 			if active and not ready:
 				UiIcons.sector(self, c, SLOT * 0.62, clampf(timer / total, 0.0, 1.0), Color(0, 0, 0, 0.62))
-				draw_string(font, c + Vector2(-SLOT * 0.5, 7), "%.1f" % timer if timer < 10.0 else "%d" % ceili(timer), HORIZONTAL_ALIGNMENT_CENTER, SLOT, 18, Color.WHITE)
+				draw_string(font, c + Vector2(-SLOT * 0.5, 7), "…" if timer > 999.0 else ("%.1f" % timer if timer < 10.0 else "%d" % ceili(timer)), HORIZONTAL_ALIGNMENT_CENTER, SLOT, 18, Color.WHITE)
 			elif active and _pop[i] > 0.0:
 				draw_rect(Rect2(p, Vector2(SLOT, SLOT)), Color(1, 1, 1, 0.35 * _pop[i]))
 		# Botão do slot

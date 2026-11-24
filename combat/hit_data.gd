@@ -15,6 +15,8 @@ extends Resource
 @export var poise_break := false
 ## Multiplica o dano que o golpe causa no poise do alvo (martelo: 2,5×).
 @export var poise_mult := 1.0
+## Dano por tick (zona arcana, aperto do golem): fere sem fazer o alvo cambalear nem tocar reação.
+@export var dot := false
 
 var source: Node3D
 ## Parte do corpo atingida ("head", "chest", "arm_l"...). Vazio = golpe de área ou alvo sem rig.

@@ -7,6 +7,8 @@ extends Hitbox
 @export var lifetime := 0.9
 @export var damage := 4
 
+## Cor do virote (a seta arcana do mago usa azul).
+var color := Color(1.0, 0.9, 0.5)
 var direction := Vector3.FORWARD
 var instigator: Node3D
 
@@ -24,9 +26,9 @@ func _ready() -> void:
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(0.05, 0.05, 0.5)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.9, 0.5)
+	mat.albedo_color = color
 	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.8, 0.3)
+	mat.emission = color
 	mat.emission_energy_multiplier = 2.0
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh

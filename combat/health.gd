@@ -48,6 +48,25 @@ func heal_over_time(amount: float) -> void:
 		heal(whole)
 
 
+## Dano contínuo (zona arcana, aperto do golem): fere o alvo sem reação de golpe (stagger/hitstun).
+## Mostra o número de dano e devolve true se causou dano.
+static func dot(target: Node3D, amount: int, source: Node3D = null, color := Color.WHITE) -> bool:
+	var hp := target.get_node_or_null("Health") as Health
+	if hp == null or hp.current <= 0:
+		return false
+	var hit := HitData.new()
+	hit.damage = amount
+	hit.knockback = 0.0
+	hit.hitstun = 0.0
+	hit.hitstop = 0.0
+	hit.dot = true
+	hit.source = source
+	if not hp.take_hit(hit):
+		return false
+	Fx.damage_number(target, target.global_position + Vector3(0, 2.0, 0), hp.last_damage, color)
+	return true
+
+
 func is_invulnerable() -> bool:
 	return invulnerable or _iframes > 0.0
 

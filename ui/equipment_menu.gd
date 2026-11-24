@@ -81,7 +81,7 @@ func _build() -> void:
 	vb.add_child(_section("Summon"))
 	_add_row(vb, "summon", 0, "Summon ativo")
 	vb.add_child(_section("Skills do summon (LB + botão)"))
-	for i in 4:
+	for i in GameState.summon_slots.size():
 		_add_row(vb, "slot", i, "")
 
 	vb.add_child(_section("Skills passivas (o summon usa sozinho)"))
@@ -187,7 +187,7 @@ func _update_desc(row: Dictionary) -> void:
 		_desc.text = "Orbe de fogo: %s conjura uma bola de fogo que explode em área.\nEscudo: reduz 75%% de todo o dano e aumenta muito o stance (não cambaleia fácil); LT bloqueia/parry, %s é uma investida.\nBesta automática: segure %s para disparar virotes em sequência, sem parar de andar ou correr." % [
 			InputGlyphs.label(&"secondary"), InputGlyphs.label(&"secondary"), InputGlyphs.label(&"secondary")]
 	elif row["kind"] == "summon":
-		_desc.text = "Golem de Pedra: combate corpo a corpo, provoca e agarra.\nSacerdote: fica atrás de você curando, dando buffs, aplicando debuffs e com poucas skills de dano. \nMago: fica no seu flanco lançando magias de dano em área (bola de fogo, gelo, raios, meteoros). Troque e invoque de novo com %s." % InputGlyphs.label(&"summon")
+		_desc.text = "Golem de Pedra: combate corpo a corpo (socos, chute, ombrada), agarra inimigos e arremessa pedras. Chega como um meteoro.\nSacerdote: fica atrás de você, cura e abençoa; abre baús encantados. Chega curando.\nMago: fica no seu flanco, atira setas arcanas, bane alvos e conjura orbes. Chega abrindo uma zona arcana. Troque e invoque de novo com %s." % InputGlyphs.label(&"summon")
 	elif row["kind"] == "passive":
 		_desc.text = SummonSkills.passive_desc(GameState.summon_passives[row["index"]])
 	else:

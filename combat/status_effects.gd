@@ -15,6 +15,8 @@ const DEFS := {
 	&"regen": {"name": "Regeneração", "duration": 8.0, "color": Color(0.5, 1.0, 0.7), "regen": 4.0},
 	&"hex": {"name": "Maldição", "duration": 8.0, "color": Color(0.7, 0.3, 0.9), "damage_in": 1.3, "damage_out": 0.8},
 	&"slow": {"name": "Lentidão", "duration": 6.0, "color": Color(0.5, 0.6, 1.0), "speed": 0.5},
+	# Benção passiva do sacerdote: mais dano e mais armadura por pouco tempo.
+	&"blessing": {"name": "Benção", "duration": 5.0, "color": Color(1.0, 0.9, 0.45), "damage_out": 1.25, "damage_in": 0.75},
 }
 
 var active: Dictionary = {} # id -> segundos restantes
@@ -31,14 +33,15 @@ static func of(node: Node) -> StatusEffects:
 
 
 ## Aplica (ou renova) o efeito e mostra o nome flutuando sobre o alvo.
-static func apply(node: Node3D, id: StringName, duration := -1.0) -> void:
+static func apply(node: Node3D, id: StringName, duration := -1.0, quiet := false) -> void:
 	if not DEFS.has(id):
 		return
 	var s := of(node)
 	var d: Dictionary = DEFS[id]
 	s.active[id] = duration if duration > 0.0 else float(d["duration"])
-	Fx.damage_number(node, node.global_position + Vector3(0, 2.6, 0), 0, d["color"], d["name"])
-	Sfx.play(&"debuff" if (id == &"hex" or id == &"slow") else &"buff", node.global_position + Vector3(0, 1.0, 0))
+	if not quiet: # aplicações repetidas (zona arcana) não enchem a tela de texto
+		Fx.damage_number(node, node.global_position + Vector3(0, 2.6, 0), 0, d["color"], d["name"])
+		Sfx.play(&"debuff" if (id == &"hex" or id == &"slow") else &"buff", node.global_position + Vector3(0, 1.0, 0))
 	s._refresh_light()
 	s.changed.emit()
 

@@ -139,6 +139,8 @@ func _pick_passive(c: Summon, p: Player, nearest: Node3D, nearest_d: float) -> S
 				ok = hp_ratio < 0.6
 			&"p_renew":
 				ok = in_combat and hp_ratio < 0.85 and not StatusEffects.has(p, &"regen")
+			&"p_blessing":
+				ok = in_combat and not StatusEffects.has(p, &"blessing")
 			&"p_bless":
 				ok = in_combat and not StatusEffects.has(p, &"bless")
 			&"p_ward":

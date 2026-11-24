@@ -11,16 +11,16 @@ arquivos-fonte:
 
 Tanque de pedra (rig com `fist_scale` grande, sem arma). Velocidade 6,5, distância de seguir 3 m, alcance 1,8 m, massa 4, vida 200.
 
-## Golpes básicos
-`BASIC` (dano 9), `SLAM` (18, área 4,4×4,4), `SPIN` (14). O último soco do combo soma +6, knockback 9,5 e derruba.
+## Ataques básicos
+Alternam em ciclo: **soco direito** (9), **soco esquerdo** (9) e **chute espartano** (14, knockback 10). A **ombrada** (12, investida) só sai a 3,2–9 m do alvo, para fechar distância (recarga 5 s).
 
-## Passivas
-| Passiva | Cooldown | Condição |
-|---|---|---|
-| `slam` | 7 s | alcance 0–2,6, ≥ 1 inimigo em 3,4 m |
-| `combo` | 5 s | alcance 0–2,4 |
-| `rock` | 7 s | alcance 4,5–14 |
-| `spin` | 9 s | alcance 0–2,8, ≥ 2 inimigos em 3,6 m |
+## Skill ativa
+`grab` (Agarrar): aperta o inimigo pelo pescoço por 4 s e abre portas pesadas — ver [[Skills do summon]].
 
-Skills comandadas: [[Skills do summon]]. Também pula degraus (`leap`) e esquiva ([[Summons]]).
-Provocar (`taunt`) faz inimigos o atacarem — [[IA dos inimigos]].
+## Passiva
+`rock` — pedra com stun de 2 s, recarga 10 s, prioriza aéreos e longa distância.
+
+## Ao ser invocado
+Cai como **meteoro** sobre o inimigo travado (ou o mais próximo; sem inimigos, à frente do jogador): dano **60** em área de raio 6,5, lança os alvos, slow-mo e tremor.
+
+Também pula degraus (`leap`) e esquiva ([[Summons]]). Outras skills guardadas: [[Skills do summon]].
