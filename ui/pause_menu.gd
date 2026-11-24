@@ -1,15 +1,19 @@
 extends CanvasLayer
-## Menu de pausa (Esc / Start): continuar, equipamento, reiniciar a fase, opções e sair.
+## Menu de pausa (Esc / Start): continuar, equipamento, reiniciar a fase, opções, apagar progresso e sair.
+## "Apagar progresso" pede um segundo clique para confirmar; depois zera o GameState e reinicia a fase.
 ## Opções: vídeo (modo de tela, resolução, escala 3D, VSync, limite de FPS, anti-aliasing, FPS na tela),
 ## áudio e controles. Navegação: ↑/↓ escolhe, ←/→ ou A/Enter troca o valor, B/Esc volta.
 
 const PAGE_MAIN := 0
 const PAGE_OPTIONS := 1
+const WIPE_TEXT := "Apagar progresso"
+const WIPE_CONFIRM := "Confirmar: apagar skills, baús e loadout?"
 
 var _page := PAGE_MAIN
 var _main_box: VBoxContainer
 var _options_box: VBoxContainer
 var _main_first: Button
+var _wipe_button: Button
 var _rows: Array[Dictionary] = [] # {"button": Button, "key": String}
 var _hint: Label
 var _fps_label: Label
@@ -55,6 +59,7 @@ func open() -> void:
 	_ui.visible = true
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_wipe_button.text = WIPE_TEXT
 	_show_page(PAGE_MAIN)
 
 
@@ -70,6 +75,16 @@ func restart() -> void:
 	Engine.time_scale = 1.0
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	get_tree().reload_current_scene()
+
+
+## Primeiro clique pede confirmação; o segundo apaga o progresso (GameState.reset_progress) e reinicia a fase.
+func _wipe_progress() -> void:
+	if _wipe_button.text != WIPE_CONFIRM:
+		_wipe_button.text = WIPE_CONFIRM
+		return
+	_wipe_button.text = WIPE_TEXT
+	GameState.reset_progress()
+	restart()
 
 
 func _open_equipment() -> void:
@@ -127,6 +142,8 @@ func _build() -> void:
 	_menu_button(_main_box, "Equipamento", _open_equipment)
 	_menu_button(_main_box, "Reiniciar fase", restart)
 	_menu_button(_main_box, "Opções", func() -> void: _show_page(PAGE_OPTIONS))
+	_wipe_button = _menu_button(_main_box, WIPE_TEXT, _wipe_progress)
+	_wipe_button.focus_exited.connect(func() -> void: _wipe_button.text = WIPE_TEXT)
 	_menu_button(_main_box, "Sair do jogo", func() -> void: get_tree().quit())
 
 	# Página de opções

@@ -3,6 +3,7 @@ extends StaticBody3D
 ## Porta pesada: o jogador não consegue abri-la. Só o golem, com a skill Agarrar usada perto dela e sem
 ## inimigos por perto (Summon.nearest_heavy_door), a levanta. Fica no grupo "heavy_door".
 ## Se a cena não tiver filhos, monta sozinha a malha e a colisão a partir de `size`.
+## Com `door_id`, fica aberta entre recargas e no save (GameState.set_flag).
 
 signal opened(by: Node3D)
 
@@ -10,6 +11,8 @@ signal opened(by: Node3D)
 @export var open_time := 1.4
 ## Distância (m) a que o golem se posiciona para abri-la.
 @export var reach := 2.8
+## Id para lembrar que a porta já foi aberta (vazio = não lembra).
+@export var door_id: StringName = &""
 
 var is_open := false
 
@@ -46,6 +49,10 @@ func _ready() -> void:
 			bi.mesh = band
 			bi.position.y = y
 			add_child(bi)
+	if door_id != &"" and GameState.get_flag(door_id, false):
+		is_open = true
+		global_position.y += size.y + 0.3
+		collision_layer = 0
 
 
 ## Chamado pelo golem: a porta sobe (ou cede) e deixa de bloquear a passagem.
@@ -53,6 +60,8 @@ func open(by: Node3D = null) -> void:
 	if is_open:
 		return
 	is_open = true
+	if door_id != &"":
+		GameState.set_flag(door_id)
 	Sfx.play(&"boom", global_position, 0.0, 0.5)
 	var tw := create_tween()
 	tw.tween_property(self, "global_position:y", global_position.y + size.y + 0.3, open_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)

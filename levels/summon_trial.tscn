@@ -155,6 +155,7 @@ size = Vector3(4, 6, 1)
 [node name="HeavyDoor" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -14)
 script = ExtResource("9_door")
+door_id = &"trial_door"
 
 [node name="ChestSkill" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -24)

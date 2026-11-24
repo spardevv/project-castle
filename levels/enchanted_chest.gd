@@ -4,7 +4,7 @@ extends Node3D
 ## botão de interação perto dele. Fica no grupo "interactable"; o Player chama interact(player).
 ## Recompensa configurável: `reward_kind = "skill"` libera uma skill guardada de summon (SummonSkills.unlock /
 ## unlock_passive) e `"heal"` cura o jogador. Com `chest_id`, fica aberto entre recargas da cena
-## (GameState.world_flags). Sempre emite `opened`.
+## e do save (GameState.set_flag). Sempre emite `opened`.
 
 signal opened(by: Node3D)
 
@@ -65,7 +65,7 @@ func _ready() -> void:
 	_hint.position = Vector3(0, 1.6, 0)
 	_hint.visible = false
 	add_child(_hint)
-	if chest_id != &"" and GameState.world_flags.get(chest_id, false):
+	if chest_id != &"" and GameState.get_flag(chest_id, false):
 		is_open = true
 		_lid.rotation_degrees.x = -100.0
 
@@ -105,7 +105,7 @@ func interact(by: Node3D) -> bool:
 	var tw := create_tween()
 	tw.tween_property(_lid, "rotation_degrees:x", -100.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if chest_id != &"":
-		GameState.world_flags[chest_id] = true
+		GameState.set_flag(chest_id)
 	_give_reward(by)
 	opened.emit(by)
 	return true

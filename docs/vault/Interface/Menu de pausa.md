@@ -10,7 +10,9 @@ arquivos-fonte:
 # Menu de pausa
 
 **Esc** (teclado) ou **Start** (controle) pausa o jogo. Itens: **Continuar**, **Equipamento** (abre o [[Menu de equipamento]]),
-**Reiniciar fase** (recarrega a cena; o loadout do `GameState` é mantido), **Opções** e **Sair do jogo**.
+**Reiniciar fase** (recarrega a cena; o loadout do `GameState` é mantido), **Opções**, **Apagar progresso** e **Sair do jogo**.
+**Apagar progresso** pede um segundo clique ("Confirmar…"; volta ao normal se o foco sair do botão), depois chama
+`GameState.reset_progress()` (skills liberadas, baús/portas abertos e loadout) e reinicia a fase ([[Loadout e equipamento#Save (`user://save.cfg`)|save]]).
 Navegação: ↑/↓ escolhe, ←/→ ou A/Enter troca o valor, B/Esc volta.
 
 > [!info] Atalhos
